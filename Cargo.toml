@@ -13,17 +13,20 @@ keywords      = ["websocket"]
 categories    = ["web-programming"]
 
 [dependencies]
-tokio         = { version = "1",   optional = true, features = ["net"] }
-async-std     = { version = "1",   optional = true }
-smol          = { version = "2",   optional = true }
-glommio       = { version = "0.9", optional = true }
-futures-util  = { version = "0.3", optional = true, default-features = false, features = ["io"] }
+tokio         = { optional = true, version = "1", features = ["net", "io-util"] }
+async-std     = { optional = true, version = "1"   }
+smol          = { optional = true, version = "2"   }
+glommio       = { optional = true, version = "0.9" }
+futures-util  = { optional = true, version = "0.3", default-features = false, features = ["io"] }
+
+sha1          = { version = "0.10", default-features = false }
+base64        = { version = "0.22" }
 
 [features]
-tokio     = ["dep:tokio",     "tokio/io-util"   ]
-async-std = ["dep:async-std"                    ]
-smol      = ["dep:smol",      "dep:futures-util"]
-glommio   = ["dep:glommio",   "dep:futures-util"]
+tokio     = ["dep:tokio"]
+async-std = ["dep:async-std"]
+smol      = ["dep:smol"]
+glommio   = ["dep:glommio",  "dep:futures-util"]
 
 ### DEBUG ###
 default = ["tokio"]
