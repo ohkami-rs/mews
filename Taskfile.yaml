@@ -3,24 +3,24 @@ version: '3'
 tasks:
   CI:
     deps:
-      - tokio
-      - async-std
-      - smol
-      - glommio
+      - test:tokio
+      - test:async-std
+      - test:smol
+      - test:glommio
+      - test:doc
 
-  tokio:
+  test:tokio:
+    cmds:
+      - cargo test --lib --features tokio
+  test:async-std:
+    cmds:
+      - cargo test --lib --features async-std
+  test:smol:
+    cmds:
+      - cargo test --lib --features smol
+  test:glommio:
+    cmds:
+      - cargo test --lib --features glommio
+  test:doc:
     cmds:
       - cargo test --doc --features tokio
-      - cargo test --lib --features tokio
-  async-std:
-    cmds:
-      - cargo test --doc --features async-std
-      - cargo test --lib --features async-std
-  smol:
-    cmds:
-      - cargo test --doc --features smol
-      - cargo test --lib --features smol
-  glommio:
-    cmds:
-      - cargo test --doc --features glommio
-      - cargo test --lib --features glommio
