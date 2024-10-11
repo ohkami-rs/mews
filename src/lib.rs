@@ -15,6 +15,7 @@ mod runtime {
         tokio::net::TcpStream,
         tokio::io::AsyncReadExt as Read,
         tokio::io::AsyncWriteExt as Write,
+        tokio::sync::RwLock
     };
 
     #[cfg(feature="async-std")]

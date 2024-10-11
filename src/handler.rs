@@ -44,7 +44,7 @@ where
 {
     fn into_handler(self) -> Handler<C> {
         Box::new(move |conn| Box::pin({
-            let (r, w) = conn.split().unwrap(/* calling before user's handler (`self`) */);
+            let (r, w) = unsafe {conn.split()}/* SAFETY: calling before user's handler (`self`) */;
             let session = self(r, w);
             async {session.await}
         }))
@@ -57,7 +57,7 @@ where
 {
     fn into_handler(self) -> Handler<C> {
         Box::new(move |conn| Box::pin({
-            let (r, w) = conn.split().unwrap(/* calling before user's handler (`self`) */);
+            let (r, w) = unsafe {conn.split()}/* SAFETY: calling before user's handler (`self`) */;
             let session = self(r, w);
             async {if let Err(e) = session.await {
                 eprintln!("finished WebSocket session: {e}")
@@ -73,7 +73,7 @@ where
 {
     fn into_handler(self) -> Handler<C> {
         Box::new(move |conn| Box::pin({
-            let (r, w) = conn.split().unwrap(/* calling before user's handler (`self`) */);
+            let (r, w) = unsafe {conn.split()}/* SAFETY: calling before user's handler (`self`) */;
             let session = self(w, r);
             async {session.await}
         }))
@@ -86,7 +86,7 @@ where
 {
     fn into_handler(self) -> Handler<C> {
         Box::new(move |conn| Box::pin({
-            let (r, w) = conn.split().unwrap(/* calling before user's handler (`self`) */);
+            let (r, w) = unsafe {conn.split()}/* SAFETY: calling before user's handler (`self`) */;
             let session = self(w, r);
             async {if let Err(e) = session.await {
                 eprintln!("finished WebSocket session: {e}")

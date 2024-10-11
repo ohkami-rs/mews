@@ -13,7 +13,7 @@ keywords      = ["websocket"]
 categories    = ["web-programming"]
 
 [dependencies]
-tokio         = { optional = true, version = "1", features = ["net", "io-util"] }
+tokio         = { optional = true, version = "1", features = ["net", "io-util", "sync"] }
 async-std     = { optional = true, version = "1"   }
 smol          = { optional = true, version = "2"   }
 glommio       = { optional = true, version = "0.9" }
