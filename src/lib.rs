@@ -23,20 +23,23 @@ mod runtime {
         async_std::net::TcpStream,
         async_std::io::ReadExt as Read,
         async_std::io::WriteExt as Write,
+        async_std::sync::RwLock
     };
 
     #[cfg(feature="smol")]
     pub use {
         smol::net::TcpStream,
-        smol::io::AsyncReadExt,
-        smol::io::AsyncWriteExt,
+        smol::io::AsyncReadExt as Read,
+        smol::io::AsyncWriteExt as Write,
+        smol::lock::RwLock
     };
 
     #[cfg(feature="glommio")]
     pub use {
         glommio::net::TcpStream,
-        futures_util::AsyncReadExt,
-        futures_util::AsyncWriteExt,
+        futures_util::AsyncReadExt as Read,
+        futures_util::AsyncWriteExt as Write,
+        glommio::sync::RwLock
     };
 }
 
