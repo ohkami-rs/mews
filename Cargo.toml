@@ -17,16 +17,21 @@ tokio         = { optional = true, version = "1", features = ["net", "io-util", 
 async-std     = { optional = true, version = "1"   }
 smol          = { optional = true, version = "2"   }
 glommio       = { optional = true, version = "0.9" }
+
 futures-util  = { optional = true, version = "0.3", default-features = false, features = ["io"] }
 
 sha1          = { version = "0.10", default-features = false }
 base64        = { version = "0.22" }
 
 [features]
-tokio     = ["dep:tokio"]
-async-std = ["dep:async-std"]
-smol      = ["dep:smol"]
-glommio   = ["dep:glommio", "dep:futures-util"]
+tokio     = ["__splitref__", "dep:tokio"]
+async-std = ["__clone__",    "dep:async-std"]
+smol      = ["__clone__",    "dep:smol"]
+glommio   = ["__splitref__", "dep:glommio", "dep:futures-util"]
+
+### internal ###
+__splitref__  = []
+__clone__     = []
 
 ### DEBUG ###
-default = ["glommio"]
+default = ["tokio"]

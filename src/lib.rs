@@ -48,14 +48,15 @@ mod handler;
 mod frame;
 mod message;
 
-pub use connection::{Connection, split};
+pub use connection::{Connection, Closer};
+pub use connection::split::{self, ReadHalf, WriteHalf};
 pub use handler::Handler;
-pub use message::{Message, CloseFrame};
 pub use frame::CloseCode;
+pub use message::{Message, CloseFrame};
+
+///////////////////////////////////////////////////////////////////////////
 
 pub(crate) use connection::UnderlyingConnection;
-
-///////////////////////////////////////////////////////////////////////////////
 
 pub struct WebSocket<C: UnderlyingConnection = crate::runtime::TcpStream> {
     /// signed `Sec-WebSocket-Key`
@@ -94,6 +95,21 @@ pub struct WebSocketContext<'ctx> {
     sec_websocket_key: &'ctx str
 }
 impl<'ctx> WebSocketContext<'ctx> {
+    /// create `WebSocketContext` with `Sec-WebSocket-Key` request header value.
+    pub fn new(sec_websocket_key: &'ctx str) -> Self {
+        Self { sec_websocket_key }
+    }
+
+    /// create a WebSocket session with the handler and default config.\
+    /// use [`connect_with`](WebSocketContext::connect_with) to apply custom `Config`.
+    /// 
+    /// ## handler
+    /// 
+    /// Any `FnOnce + Send + Sync` returning `Send + Future`
+    /// with following args and `Output`:
+    /// 
+    /// * `(Connection) -> () | std::io::Result<()>`
+    /// * `(ReadHalf, WriteHalf) -> () | std::io::Result<()>`
     pub fn connect<C: UnderlyingConnection, T>(
         self,
         handler: impl handler::IntoHandler<C, T>
@@ -101,6 +117,15 @@ impl<'ctx> WebSocketContext<'ctx> {
         self.connect_with(Config::default(), handler)
     }
 
+    /// create a WebSocket session with the config the handler.
+    /// 
+    /// ## handler
+    /// 
+    /// Any `FnOnce + Send + Sync` returning `Send + Future`
+    /// with following args and `Output`:
+    /// 
+    /// * `(Connection) -> () | std::io::Result<()>`
+    /// * `(ReadHalf, WriteHalf) -> () | std::io::Result<()>`
     pub fn connect_with<C: UnderlyingConnection, T>(
         self,
         config: Config,
