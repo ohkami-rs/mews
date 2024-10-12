@@ -12,16 +12,19 @@ description   = "Minimal and Efficient, Multiple-Environment WebSocket implement
 keywords      = ["websocket"]
 categories    = ["web-programming"]
 
+[package.metadata.docs.rs]
+features = ["tokio"]
+
 [dependencies]
-tokio         = { optional = true, version = "1", features = ["net", "io-util", "sync", "time"] }
-async-std     = { optional = true, version = "1"   }
-smol          = { optional = true, version = "2"   }
-glommio       = { optional = true, version = "0.9" }
+tokio     = { optional = true, version = "1", features = ["net", "io-util", "sync", "time"] }
+async-std = { optional = true, version = "1"   }
+smol      = { optional = true, version = "2"   }
+glommio   = { optional = true, version = "0.9" }
 
-futures-util  = { optional = true, version = "0.3", default-features = false, features = ["io"] }
+futures-util = { optional = true, version = "0.3", default-features = false, features = ["io"] }
 
-sha1          = { version = "0.10", default-features = false }
-base64        = { version = "0.22" }
+sha1   = { version = "0.10", default-features = false }
+base64 = { version = "0.22" }
 
 [features]
 tokio     = ["__splitref__", "dep:tokio"]
