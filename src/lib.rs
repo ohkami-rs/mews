@@ -1,5 +1,32 @@
+//! <div align="center">
+//!     <h1>MEWS</h1>
+//!     Minimal and Efficient, Multiple-Environment WebSocket implementation
+//! </div>
+//! 
+//! <br>
+//! 
+//! <div align="right">
+//!     <a href="https://github.com/ohkami-rs/mews/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/crates/l/mews.svg" /></a>
+//!     <a href="https://github.com/ohkami-rs/mews/actions"><img alt="CI status" src="https://github.com/ohkami-rs/mews/actions/workflows/CI.yaml/badge.svg"/></a>
+//!     <a href="https://crates.io/crates/mews"><img alt="crates.io" src="https://img.shields.io/crates/v/mews" /></a>
+//! </div>
+//! 
+//! ## Note
+//! 
+//! MEWS is NOT WebSocket server, just protocol implementation. So :
+//! 
+//! * Tend to be used by web frameworks internally, not by end-developers.
+//! 
+//! * Doesn't builtins `wss://` support.
+//! 
+//! ## Features
+//! 
+//! * Minimal and Efficient : minimal codebase to provide efficient, memory-safe WebSocket handling.
+//! 
+//! * Multiple Environment : `tokio`, `async-std`, `smol`, `glommio` are supported as async runtime ( by feature flags of the names ).
+
 #[cfg(not(any(feature="tokio", feature="async-std", feature="smol", feature="glommio")))]
-compile_error! {"One runtime feature flag must be activated"}
+compile_error! {"One of runtime feature flags ( tokio, async-std, smol, glommio ) must be activated"}
 
 #[cfg(any(
     all(feature="tokio", any(feature="async-std",feature="smol",feature="glommio")),
@@ -101,7 +128,7 @@ const _: () = {
 ///     tcp: TcpStream
 /// ) -> Response {
 ///     let ctx = WebSocketContext::new(
-///         headers["Sec-WebSocket-Key"]
+///         &headers["Sec-WebSocket-Key"]
 ///     );
 /// 
 ///     let (sign, ws) = ctx.upgrade(tcp,
