@@ -9,8 +9,8 @@ repository    = "https://github.com/ohkami-rs/mews"
 readme        = "README.md"
 license       = "MIT"
 description   = "Minimal and Efficient, Multiple-Environment WebSocket implementation"
-keywords      = ["websocket"]
-categories    = ["web-programming"]
+keywords      = ["websocket", "io", "web"]
+categories    = ["web-programming::websocket", "network-programming"]
 
 [package.metadata.docs.rs]
 features = ["tokio"]
