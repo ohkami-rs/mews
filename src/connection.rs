@@ -18,7 +18,7 @@ impl<T: Read + Write + Unpin + split::Splitable + 'static> UnderlyingConnection 
 
 pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
     __closed__: Arc<RwLock<bool>>,
-    
+
     #[cfg(feature="__splitref__")]
     conn: Arc<std::cell::UnsafeCell<C>>,
     #[cfg(feature="__clone__")]
@@ -102,7 +102,7 @@ pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
             return Ok((conn, &connection.config, &mut connection.n_buffered))
         }
         #[cfg(feature="__clone__")] {
-            let Self { conn, __closed__, config, n_buffered } = self;
+            let Connection { conn, __closed__, config, n_buffered } = connection;
             let conn = underlying!(__closed__, conn).await?;
             return Ok((conn, config, n_buffered))
         }

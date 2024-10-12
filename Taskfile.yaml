@@ -23,4 +23,4 @@ tasks:
       - cargo test --lib --features glommio
   test:doc:
     cmds:
-      - cargo test --doc --features tokio
+      - cargo test --doc --features tokio,DEBUG
