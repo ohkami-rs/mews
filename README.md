@@ -36,11 +36,11 @@ tokio = { version = "1",   features = ["rt"] }
 use mews::{WebSocketContext, Connection, Message};
 
 async fn handle_websocket(
-    headers: Headers/* of upgrade request */,
+    req: &Request/* upgrade request */,
     tcp: TcpStream
 ) -> Response {
     let ctx = WebSocketContext::new(
-        headers["Sec-WebSocket-Key"]
+        &req.headers["Sec-WebSocket-Key"]
     );
 
     let (sign, ws) = ctx.upgrade(tcp,
