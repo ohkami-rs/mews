@@ -1,5 +1,5 @@
 #[cfg(not(any(feature="tokio", feature="async-std", feature="smol", feature="glommio")))]
-compile_error! {"One feature flag must be activated"}
+compile_error! {"One runtime feature flag must be activated"}
 
 #[cfg(any(
     all(feature="tokio", any(feature="async-std",feature="smol",feature="glommio")),
@@ -7,7 +7,7 @@ compile_error! {"One feature flag must be activated"}
     all(feature="smol", any(feature="glommio",feature="tokio",feature="async-std")),
     all(feature="glommio", any(feature="tokio", feature="async-std",feature="smol",)),
 ))]
-compile_error! {"More than one feature flags can't be activated"}
+compile_error! {"More than one runtime feature flags can't be activated"}
 
 mod runtime {
     #[cfg(feature="tokio")]
@@ -15,7 +15,8 @@ mod runtime {
         tokio::net::TcpStream,
         tokio::io::AsyncReadExt as Read,
         tokio::io::AsyncWriteExt as Write,
-        tokio::sync::RwLock
+        tokio::sync::RwLock,
+        tokio::time::sleep
     };
 
     #[cfg(feature="async-std")]
@@ -23,7 +24,8 @@ mod runtime {
         async_std::net::TcpStream,
         async_std::io::ReadExt as Read,
         async_std::io::WriteExt as Write,
-        async_std::sync::RwLock
+        async_std::sync::RwLock,
+        async_std::task::sleep
     };
 
     #[cfg(feature="smol")]
@@ -31,24 +33,29 @@ mod runtime {
         smol::net::TcpStream,
         smol::io::AsyncReadExt as Read,
         smol::io::AsyncWriteExt as Write,
-        smol::lock::RwLock
+        smol::lock::RwLock,
     };
+    #[cfg(feature="smol")]
+    pub async fn sleep(duration: std::time::Duration) {
+        smol::Timer::after(duration).await;
+    }
 
     #[cfg(feature="glommio")]
     pub use {
         glommio::net::TcpStream,
         futures_util::AsyncReadExt as Read,
         futures_util::AsyncWriteExt as Write,
-        glommio::sync::RwLock
+        glommio::sync::RwLock,
+        glommio::timer::sleep
     };
 }
 
-mod connection;
-mod handler;
-mod frame;
-mod message;
+pub mod connection;
+pub mod handler;
+pub mod frame;
+pub mod message;
 
-pub use connection::{Connection, Closer};
+pub use connection::Connection;
 pub use connection::split::{self, ReadHalf, WriteHalf};
 pub use handler::Handler;
 pub use frame::CloseCode;
@@ -58,17 +65,7 @@ pub use message::{Message, CloseFrame};
 
 pub(crate) use connection::UnderlyingConnection;
 
-pub struct WebSocket<C: UnderlyingConnection = crate::runtime::TcpStream> {
-    /// signed `Sec-WebSocket-Key`
-    pub sec_websocket_key: String,
-    pub config:            Config,
-    pub handler:           Handler<C>,
-    _priv: ()
-}
-
-/// ## Note
-/// 
-/// Currently, subprotocols via `Sec-WebSocket-Protocol` is not supported
+/// **note** : currently, subprotocols via `Sec-WebSocket-Protocol` is not supported.
 #[derive(Clone, Debug)]
 pub struct Config {
     pub write_buffer_size:      usize,
@@ -91,6 +88,37 @@ const _: () = {
     }
 };
 
+/// *example.rs*
+/// ```
+/// # use tokio::time::{sleep, Duration};
+/// # use tokio::{spawn, net::TcpStream};
+/// # type Headers = std::collections::HashMap<&'static str, &'static str>;
+/// # type Response = ();
+/// use mews::{WebSocketContext, Connection, Message};
+/// 
+/// async fn handle_websocket(
+///     headers: Headers/* of upgrade request */,
+///     tcp: TcpStream
+/// ) -> Response {
+///     let ctx = WebSocketContext::new(
+///         headers["Sec-WebSocket-Key"]
+///     );
+/// 
+///     let (sign, ws) = ctx.upgrade(tcp,
+///         |mut conn: Connection| async move {
+///             while let Ok(Some(Message::Text(text))) = conn.recv().await {
+///                 conn.send(text).await
+///                     .expect("failed to send message");
+///                 sleep(Duration::from_secs(1)).await;
+///             }
+///         }
+///     );
+/// 
+///     spawn(ws.manage());
+/// 
+///     /* return `Switching Protocol` response with `sign`... */
+/// }
+/// ```
 pub struct WebSocketContext<'ctx> {
     sec_websocket_key: &'ctx str
 }
@@ -100,8 +128,8 @@ impl<'ctx> WebSocketContext<'ctx> {
         Self { sec_websocket_key }
     }
 
-    /// create a WebSocket session with the handler and default config.\
-    /// use [`connect_with`](WebSocketContext::connect_with) to apply custom `Config`.
+    /// create signed `Sec-WebSocket-Key` and a WebSocket session with the handler and default config.\
+    /// use [`upgrade_with`](WebSocketContext::upgrade_with) to apply custom `Config`.
     /// 
     /// ## handler
     /// 
@@ -110,14 +138,15 @@ impl<'ctx> WebSocketContext<'ctx> {
     /// 
     /// * `(Connection) -> () | std::io::Result<()>`
     /// * `(ReadHalf, WriteHalf) -> () | std::io::Result<()>`
-    pub fn connect<C: UnderlyingConnection, T>(
+    pub fn upgrade<C: UnderlyingConnection, T>(
         self,
+        connection: C,
         handler: impl handler::IntoHandler<C, T>
-    ) -> WebSocket<C> {
-        self.connect_with(Config::default(), handler)
+    ) -> (String, WebSocket<C>) {
+        self.upgrade_with(Config::default(), connection, handler)
     }
 
-    /// create a WebSocket session with the config the handler.
+    /// create signed `Sec-WebSocket-Key` and a WebSocket session with the config the handler.
     /// 
     /// ## handler
     /// 
@@ -126,17 +155,86 @@ impl<'ctx> WebSocketContext<'ctx> {
     /// 
     /// * `(Connection) -> () | std::io::Result<()>`
     /// * `(ReadHalf, WriteHalf) -> () | std::io::Result<()>`
-    pub fn connect_with<C: UnderlyingConnection, T>(
+    pub fn upgrade_with<C: UnderlyingConnection, T>(
         self,
         config: Config,
+        connection: C,
         handler: impl handler::IntoHandler<C, T>
-    ) -> WebSocket<C> {
-        WebSocket {
-            sec_websocket_key: sign(&self.sec_websocket_key),
-            config,
-            handler: handler.into_handler(),
-            _priv: ()
-        }
+    ) -> (String, WebSocket<C>) {
+        (
+            sign(self.sec_websocket_key),
+            WebSocket {
+                config,
+                conn: connection,
+                handler: handler.into_handler(),
+            }
+        )
+    }
+}
+
+/// WebSocket session on underlying connection `C` (default: `TcpStream` of
+/// selected async runtime)
+/// 
+/// **note** : `WebSocket` does nothing unless `.manage()` or `.manage_with_timeout()` is called.
+/// 
+/// *example.rs*
+/// ```
+/// # use tokio::time::{sleep, Duration};
+/// # use tokio::{spawn, net::TcpStream};
+/// # type Response = ();
+/// use mews::{WebSocketContext, Connection, Message};
+/// 
+/// async fn handle_websocket(
+///     ctx: WebSocketContext<'_>/* from upgrade request */,
+///     tcp: TcpStream
+/// ) -> Response {
+///     let (sign, ws) = ctx.upgrade(tcp,
+///         |mut conn: Connection| async move {
+///             while let Ok(Some(Message::Text(text))) = conn.recv().await {
+///                 conn.send(text).await
+///                     .expect("failed to send message");
+///                 sleep(Duration::from_secs(1)).await;
+///             }
+///         }
+///     );
+/// 
+///     spawn(ws.manage());
+/// 
+///     /* return `Switching Protocol` response with `sign`... */
+/// }
+/// ```
+#[must_use = "`WebSocket` does nothing unless `.manage()` or `.manage_with_timeout()` is called"]
+pub struct WebSocket<C: UnderlyingConnection = crate::runtime::TcpStream> {
+    config:  Config,
+    handler: Handler<C>,
+    conn:    C
+}
+impl<C: UnderlyingConnection> WebSocket<C> {
+    pub async fn manage(self) {
+        let (conn, closer) = Connection::new(self.conn, self.config);
+        (self.handler)(conn).await;
+        closer.send_close_if_not_closed().await;
+    }
+
+    pub async fn manage_with_timeout(self, timeout: std::time::Duration) {
+        let (conn, closer) = Connection::new(self.conn, self.config);
+
+        let is_timeouted = crate::timeout(timeout,
+            (self.handler)(conn)
+        ).await.is_none();
+
+        closer.send_close_if_not_closed_with(if is_timeouted {
+            eprintln!("[WARNING] WebSocket session is aborted by timeout");
+            CloseFrame {
+                code:   CloseCode::Library(4000),
+                reason: Some("timeout".into())
+            }
+        } else {
+            CloseFrame {
+                code:   CloseCode::Normal,
+                reason: None
+            }
+        }).await;
     }
 }
 
@@ -156,4 +254,37 @@ fn sign(sec_websocket_key: &str) -> String {
 #[test] fn test_sign() {
     /* example of https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_servers#server_handshake_response */
     assert_eq!(sign("dGhlIHNhbXBsZSBub25jZQ=="), "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=");
+}
+
+#[inline]
+fn timeout<T>(
+    duration: std::time::Duration,
+    task: impl std::future::Future<Output = T>
+) -> impl std::future::Future<Output = Option<T>> {
+    use std::{task::Poll, pin::Pin};
+
+    struct Timeout<Sleep, Proc> { sleep: Sleep, task: Proc }
+
+    #[cfg(feature="glommio")]
+    // SAFETY: task and sleep are performed on same thread
+    unsafe impl<Sleep, Proc> Send for Timeout<Sleep, Proc> {}
+
+    impl<Sleep, Proc, T> std::future::Future for Timeout<Sleep, Proc>
+    where
+        Sleep: std::future::Future<Output = ()>,
+        Proc:  std::future::Future<Output = T>,
+    {
+        type Output = Option<T>;
+
+        #[inline]
+        fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+            let Timeout { sleep, task } = unsafe {self.get_unchecked_mut()};
+            match unsafe {Pin::new_unchecked(task)}.poll(cx) {
+                Poll::Ready(t) => Poll::Ready(Some(t)),
+                Poll::Pending  => unsafe {Pin::new_unchecked(sleep)}.poll(cx).map(|_| None)
+            }
+        }
+    }
+
+    Timeout { task, sleep: crate::runtime::sleep(duration) }
 }

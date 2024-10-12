@@ -8,12 +8,12 @@ homepage      = "https://crates.io/crates/mews"
 repository    = "https://github.com/ohkami-rs/mews"
 readme        = "README.md"
 license       = "MIT"
-description   = "minimal and efficient, multiple-environment WebSocket implementation"
+description   = "Minimal and Efficient, Multiple-Environment WebSocket implementation"
 keywords      = ["websocket"]
 categories    = ["web-programming"]
 
 [dependencies]
-tokio         = { optional = true, version = "1", features = ["net", "io-util", "sync"] }
+tokio         = { optional = true, version = "1", features = ["net", "io-util", "sync", "time"] }
 async-std     = { optional = true, version = "1"   }
 smol          = { optional = true, version = "2"   }
 glommio       = { optional = true, version = "0.9" }
@@ -30,8 +30,12 @@ smol      = ["__clone__",    "dep:smol"]
 glommio   = ["__splitref__", "dep:glommio", "dep:futures-util"]
 
 ### internal ###
-__splitref__  = []
-__clone__     = []
+__splitref__ = []
+__clone__    = []
 
-### DEBUG ###
-default = ["tokio"]
+####################################
+### DEBUG ##########################
+####################################
+### DEBUG   = ["tokio?/rt"]      ###
+### default = ["tokio", "DEBUG"] ###
+####################################

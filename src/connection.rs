@@ -16,13 +16,14 @@ pub trait UnderlyingConnection: Read + Write + Unpin + split::Splitable + 'stati
 #[cfg(feature="__clone__")]
 impl<T: Read + Write + Unpin + split::Splitable + 'static> UnderlyingConnection for T {}
 
-pub struct Connection<C: UnderlyingConnection> {
-    /* FIXME: more sound structure */
+pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
+    __closed__: Arc<RwLock<bool>>,
+    
     #[cfg(feature="__splitref__")]
     conn: Arc<std::cell::UnsafeCell<C>>,
     #[cfg(feature="__clone__")]
     conn: C,
-    __closed__: Arc<RwLock<bool>>,
+
     config:     Config,
     n_buffered: usize,
 }
@@ -182,14 +183,18 @@ pub struct Closer<C: UnderlyingConnection>(Connection<C>);
 
 use crate::{CloseCode, CloseFrame};
 impl<C: UnderlyingConnection> Closer<C> {
-    pub async fn send_close_if_not_closed(self) -> Result<(), Error> {
+    /// if the connection is not closed yet, send a close frame with
+    /// `CloseCode::Normal`. see [`send_close_if_not_closed_with`](Closer::send_close_if_not_closed_with)
+    /// to do with custom frame.
+    pub async fn send_close_if_not_closed(self) {
         self.send_close_if_not_closed_with(CloseFrame {
             code:   CloseCode::Normal,
             reason: None
         }).await
     }
 
-    pub async fn send_close_if_not_closed_with(mut self, frame: CloseFrame) -> Result<(), Error> {
+    /// if the connection is not closed yet, send the close frame.
+    pub async fn send_close_if_not_closed_with(mut self, frame: CloseFrame) {
         #[cfg(debug_assertions)] {
             if Arc::strong_count(&self.0.__closed__) != 1 {
                 eprintln!("\n\
@@ -203,10 +208,10 @@ impl<C: UnderlyingConnection> Closer<C> {
         }
 
         if !self.0.is_closed().await {
-            self.0.send(Message::Close(Some(frame))).await?
+            if let Err(e) = self.0.send(Message::Close(Some(frame))).await {
+                eprintln!("failed to send a close message: {e}")
+            }
         }
-
-        Ok(())
     }
 }
 
@@ -223,7 +228,7 @@ impl<C: UnderlyingConnection> Connection<C> {
     /// async fn upgrade_websocket(
     ///     connection: tokio::net::TcpStream,
     ///     config: Config,
-    ///     handler: Handler,
+    ///     handler: Handler<tokio::net::TcpStream>,
     /// ) {
     ///     let (conn, closer) = Connection::new(connection, config);
     /// 
@@ -231,8 +236,7 @@ impl<C: UnderlyingConnection> Connection<C> {
     ///     handler(conn).await;
     /// 
     ///     // 2. send a close message if not already closed
-    ///     closer.send_close_if_not_closed().await
-    ///         .expect("failed to send a close frame");
+    ///     closer.send_close_if_not_closed().await;
     /// 
     ///     println!("WebSocket session finished")
     /// }
@@ -281,7 +285,9 @@ impl<C: UnderlyingConnection> Connection<C> {
     /// **note** : When sending a `Close` message, this automatically close the
     /// connection, then the connection is not available anymore.
     #[inline]
-    pub async fn send(&mut self, message: Message) -> Result<(), Error> {
+    pub async fn send(&mut self, message: impl Into<Message>) -> Result<(), Error> {
+        let message = message.into();
+
         let (conn, config, n_buffered) = to_checked_parts(self).await?;
 
         let closing = matches!(message, Message::Close(_));
@@ -296,7 +302,9 @@ impl<C: UnderlyingConnection> Connection<C> {
     /// 
     /// **note** : When sending a `Close` message, this automatically close the
     /// connection, then the connection is not available anymore.
-    pub async fn write(&mut self, message: Message) -> Result<usize, Error> {
+    pub async fn write(&mut self, message: impl Into<Message>) -> Result<usize, Error> {
+        let message = message.into();
+
         let (conn, config, n_buffered) = to_checked_parts(self).await?;
 
         let closing = matches!(message, Message::Close(_));
@@ -389,7 +397,9 @@ pub mod split {
         /// **note** : When sending a `Close` message, this automatically close the
         /// connection, then the connection is not available anymore.
         #[inline]
-        pub async fn send(&mut self, message: Message) -> Result<(), Error> {
+        pub async fn send(&mut self, message: impl Into<Message>) -> Result<(), Error> {
+            let message = message.into();
+
             let Self { __closed__, conn, config, n_buffered } = self;
             let conn = underlying!(__closed__, conn).await?;
 
@@ -405,7 +415,9 @@ pub mod split {
         /// 
         /// **note** : When sending a `Close` message, this automatically close the
         /// connection, then the connection is not available anymore.
-        pub async fn write(&mut self, message: Message) -> Result<usize, Error> {
+        pub async fn write(&mut self, message: impl Into<Message>) -> Result<usize, Error> {
+            let message = message.into();
+
             let Self { __closed__, conn, config, n_buffered } = self;
             let conn = underlying!(__closed__, conn).await?;
 
