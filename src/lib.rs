@@ -93,7 +93,7 @@ pub use message::{Message, CloseFrame};
 pub(crate) use connection::UnderlyingConnection;
 
 /// **note** : currently, subprotocols via `Sec-WebSocket-Protocol` is not supported.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Config {
     pub write_buffer_size:      usize,
     pub max_write_buffer_size:  usize,
@@ -180,6 +180,23 @@ impl<'ctx> WebSocketContext<'ctx> {
         )
     }
 }
+const _: () = {
+    impl PartialEq for WebSocketContext<'_> {
+        fn eq(&self, other: &Self) -> bool {
+            self.sec_websocket_key == other.sec_websocket_key &&
+            self.config == other.config
+        }
+    }
+
+    impl std::fmt::Debug for WebSocketContext<'_> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("WebSocketContext")
+                .field("Sec-WebSocket-Context", &self.sec_websocket_key)
+                .field("config", &self.config)
+                .finish()
+        }
+    }
+};
 
 /// WebSocket on underlying connection `C` (default: `TcpStream` of
 /// selected async runtime)
@@ -245,6 +262,26 @@ impl<C: UnderlyingConnection> WebSocket<C> {
         }).await;
     }
 }
+const _: () = {
+    impl<C: UnderlyingConnection> PartialEq for WebSocket<C>
+    where
+        dyn FnOnce(connection::Connection<C>) -> std::pin::Pin<Box<(dyn std::future::Future<Output = ()> + Send + 'static)>> + Send + Sync
+        : PartialEq
+    {
+        fn eq(&self, other: &Self) -> bool {
+            self.config == other.config &&
+            &self.handler == &other.handler
+        }
+    }
+
+    impl<C: UnderlyingConnection> std::fmt::Debug for WebSocket<C> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("WebSocket")
+                .field("config", &self.config)
+                .finish_non_exhaustive()
+        }
+    }
+};
 
 #[inline]
 fn sign(sec_websocket_key: &str) -> String {
