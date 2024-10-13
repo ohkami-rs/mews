@@ -43,7 +43,7 @@ async fn handle_websocket(
         &req.headers["Sec-WebSocket-Key"]
     );
 
-    let (sign, ws) = ctx.upgrade(tcp,
+    let (sign, ws) = ctx.on_upgrade(
         |mut conn: Connection| async move {
             while let Ok(Some(Message::Text(text))) = conn.recv().await {
                 conn.send(text).await
@@ -53,7 +53,7 @@ async fn handle_websocket(
         }
     );
 
-    spawn(ws.manage());
+    spawn(ws.manage(tcp));
 
     /* return `Switching Protocol` response with `sign`... */
 }

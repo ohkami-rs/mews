@@ -3,18 +3,16 @@ use crate::runtime::{Read, Write, RwLock};
 use std::{sync::Arc, io::Error};
 
 // Why 'static lifetime?
+// 
+// [__splitref__]
 // 1. The underlying connection is in `Arc`
 // 2. The closer returned from `Connection::new` is expected to be alive until WebSocket session completes
 // 3. This split is expected to be called before user's handler is called
-#[cfg(feature="__splitref__")]
+// 
+// [__clone__]
+// Just a dummy lifetime paramter to have the same signature of it in __splitref__
 pub trait UnderlyingConnection: Read + Write + Unpin + split::Splitable<'static> + 'static {}
-#[cfg(feature="__splitref__")]
 impl<T: Read + Write + Unpin + split::Splitable<'static> + 'static> UnderlyingConnection for T {}
-
-#[cfg(feature="__clone__")]
-pub trait UnderlyingConnection: Read + Write + Unpin + split::Splitable + 'static {}
-#[cfg(feature="__clone__")]
-impl<T: Read + Write + Unpin + split::Splitable + 'static> UnderlyingConnection for T {}
 
 pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
     __closed__: Arc<RwLock<bool>>,
@@ -298,7 +296,7 @@ impl<C: UnderlyingConnection> Connection<C> {
     }
 
     /// Write a message to the connection. Buffering behavior is customizable
-    /// via `Config` of `WebSocketContext::connect_with`.
+    /// via [`WebSocketContext::with(Config)`](crate::WebSocketContext::with).
     /// 
     /// **note** : When sending a `Close` message, this automatically close the
     /// connection, then the connection is not available anymore.
@@ -330,6 +328,13 @@ pub mod split {
         type WriteHalf: Write + Unpin;
         fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf);
     }
+    #[cfg(feature="__clone__")] /* `'split`: Just a dummy param */
+    pub trait Splitable<'split>: Read + Write + Unpin + Sized + Clone {
+        type ReadHalf: Read + Unpin;
+        type WriteHalf: Write + Unpin;
+        fn split(self) -> (Self::ReadHalf, Self::WriteHalf);
+    }
+
     #[cfg(feature="__splitref__")]
     const _: () = {
         #[cfg(feature="tokio")]
@@ -349,16 +354,9 @@ pub mod split {
             }
         }
     };
-
-    #[cfg(feature="__clone__")]
-    pub trait Splitable: Read + Write + Unpin + Sized + Clone {
-        type ReadHalf: Read + Unpin;
-        type WriteHalf: Write + Unpin;
-        fn split(self) -> (Self::ReadHalf, Self::WriteHalf);
-    }
     #[cfg(feature="__clone__")]
     const _: () = {
-        impl<C: Read + Write + Unpin + Sized + Clone> Splitable for C {
+        impl<'split, C: Read + Write + Unpin + Sized + Clone> Splitable<'split> for C {
             type ReadHalf = Self;
             type WriteHalf = Self;
             fn split(self) -> (Self::ReadHalf, Self::WriteHalf) {
@@ -367,7 +365,7 @@ pub mod split {
         }
     };
 
-    pub struct ReadHalf<C: Read + Unpin> {
+    pub struct ReadHalf<C: Read + Unpin = <crate::runtime::TcpStream as Splitable<'static>>::ReadHalf> {
         __closed__: Arc<RwLock<bool>>,
         conn:   C,
         config: Config,
@@ -385,7 +383,7 @@ pub mod split {
         }
     }
 
-    pub struct WriteHalf<C: Write + Unpin> {
+    pub struct WriteHalf<C: Write + Unpin = <crate::runtime::TcpStream as Splitable<'static>>::WriteHalf> {
         __closed__: Arc<RwLock<bool>>,
         conn:       C,
         config:     Config,
@@ -411,7 +409,7 @@ pub mod split {
         }
 
         /// Write a message to the connection. Buffering behavior is customizable
-        /// via `Config` of `WebSocketContext::connect_with`.
+        /// via [`WebSocketContext::with(Config)`](crate::WebSocketContext::with).
         /// 
         /// **note** : When sending a `Close` message, this automatically close the
         /// connection, then the connection is not available anymore.

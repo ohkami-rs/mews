@@ -131,7 +131,7 @@ const _: () = {
 ///         &headers["Sec-WebSocket-Key"]
 ///     );
 /// 
-///     let (sign, ws) = ctx.upgrade(tcp,
+///     let (sign, ws) = ctx.on_upgrade(
 ///         |mut conn: Connection| async move {
 ///             while let Ok(Some(Message::Text(text))) = conn.recv().await {
 ///                 conn.send(text).await
@@ -141,22 +141,27 @@ const _: () = {
 ///         }
 ///     );
 /// 
-///     spawn(ws.manage());
+///     spawn(ws.manage(tcp));
 /// 
 ///     /* return `Switching Protocol` response with `sign`... */
 /// }
 /// ```
 pub struct WebSocketContext<'ctx> {
-    sec_websocket_key: &'ctx str
+    sec_websocket_key: &'ctx str,
+    config:            Config,
 }
 impl<'ctx> WebSocketContext<'ctx> {
     /// create `WebSocketContext` with `Sec-WebSocket-Key` request header value.
     pub fn new(sec_websocket_key: &'ctx str) -> Self {
-        Self { sec_websocket_key }
+        Self { sec_websocket_key, config: Config::default() }
     }
 
-    /// create signed `Sec-WebSocket-Key` and a WebSocket session with the handler and default config.\
-    /// use [`upgrade_with`](WebSocketContext::upgrade_with) to apply custom `Config`.
+    pub fn with(mut self, config: Config) -> Self {
+        self.config = config;
+        self
+    }
+
+    /// create signed `Sec-WebSocket-Key` and a `WebSocket` with the handler.
     /// 
     /// ## handler
     /// 
@@ -165,41 +170,18 @@ impl<'ctx> WebSocketContext<'ctx> {
     /// 
     /// * `(Connection) -> () | std::io::Result<()>`
     /// * `(ReadHalf, WriteHalf) -> () | std::io::Result<()>`
-    pub fn upgrade<C: UnderlyingConnection, T>(
-        self,
-        connection: C,
-        handler: impl handler::IntoHandler<C, T>
-    ) -> (String, WebSocket<C>) {
-        self.upgrade_with(Config::default(), connection, handler)
-    }
-
-    /// create signed `Sec-WebSocket-Key` and a WebSocket session with the config the handler.
-    /// 
-    /// ## handler
-    /// 
-    /// Any `FnOnce + Send + Sync` returning `Send + Future`
-    /// with following args and `Output`:
-    /// 
-    /// * `(Connection) -> () | std::io::Result<()>`
-    /// * `(ReadHalf, WriteHalf) -> () | std::io::Result<()>`
-    pub fn upgrade_with<C: UnderlyingConnection, T>(
-        self,
-        config: Config,
-        connection: C,
-        handler: impl handler::IntoHandler<C, T>
-    ) -> (String, WebSocket<C>) {
+    pub fn on_upgrade<C: UnderlyingConnection, T>(self, handler: impl handler::IntoHandler<C, T>) -> (String, WebSocket<C>) {
         (
             sign(self.sec_websocket_key),
             WebSocket {
-                config,
-                conn: connection,
+                config:  self.config,
                 handler: handler.into_handler(),
             }
         )
     }
 }
 
-/// WebSocket session on underlying connection `C` (default: `TcpStream` of
+/// WebSocket on underlying connection `C` (default: `TcpStream` of
 /// selected async runtime)
 /// 
 /// **note** : `WebSocket` does nothing unless `.manage()` or `.manage_with_timeout()` is called.
@@ -215,7 +197,7 @@ impl<'ctx> WebSocketContext<'ctx> {
 ///     ctx: WebSocketContext<'_>/* from upgrade request */,
 ///     tcp: TcpStream
 /// ) -> Response {
-///     let (sign, ws) = ctx.upgrade(tcp,
+///     let (sign, ws) = ctx.on_upgrade(
 ///         |mut conn: Connection| async move {
 ///             while let Ok(Some(Message::Text(text))) = conn.recv().await {
 ///                 conn.send(text).await
@@ -225,26 +207,25 @@ impl<'ctx> WebSocketContext<'ctx> {
 ///         }
 ///     );
 /// 
-///     spawn(ws.manage());
+///     spawn(ws.manage(tcp));
 /// 
 ///     /* return `Switching Protocol` response with `sign`... */
 /// }
 /// ```
 #[must_use = "`WebSocket` does nothing unless `.manage()` or `.manage_with_timeout()` is called"]
-pub struct WebSocket<C: UnderlyingConnection = crate::runtime::TcpStream> {
+pub struct WebSocket<C: UnderlyingConnection = runtime::TcpStream> {
     config:  Config,
     handler: Handler<C>,
-    conn:    C
 }
 impl<C: UnderlyingConnection> WebSocket<C> {
-    pub async fn manage(self) {
-        let (conn, closer) = Connection::new(self.conn, self.config);
+    pub async fn manage(self, conn: C) {
+        let (conn, closer) = Connection::new(conn, self.config);
         (self.handler)(conn).await;
         closer.send_close_if_not_closed().await;
     }
 
-    pub async fn manage_with_timeout(self, timeout: std::time::Duration) {
-        let (conn, closer) = Connection::new(self.conn, self.config);
+    pub async fn manage_with_timeout(self, timeout: std::time::Duration, conn: C) {
+        let (conn, closer) = Connection::new(conn, self.config);
 
         let is_timeouted = crate::timeout(timeout,
             (self.handler)(conn)
