@@ -161,7 +161,7 @@ impl<'ctx> WebSocketContext<'ctx> {
         self
     }
 
-    /// create signed `Sec-WebSocket-Key` and a `WebSocket` with the handler.
+    /// create `Sec-WebSocket-Accept` value and a `WebSocket` with the handler.
     /// 
     /// ## handler
     /// 
