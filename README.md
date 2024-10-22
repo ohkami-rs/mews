@@ -1,6 +1,6 @@
 <div align="center">
     <h1>MEWS</h1>
-    Minimal and Efficient, Multiple-Environment WebSocket implementation
+    Minimal and Efficient, Multi-Environment WebSocket implementation for Rust
 </div>
 
 <br>

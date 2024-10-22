@@ -8,7 +8,7 @@ homepage      = "https://crates.io/crates/mews"
 repository    = "https://github.com/ohkami-rs/mews"
 readme        = "README.md"
 license       = "MIT"
-description   = "Minimal and Efficient, Multiple-Environment WebSocket implementation"
+description   = "Minimal and Efficient, Multi-Environment WebSocket implementation"
 keywords      = ["websocket", "io", "web"]
 categories    = ["web-programming::websocket", "network-programming"]
 
