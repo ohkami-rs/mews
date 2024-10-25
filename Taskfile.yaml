@@ -1,26 +1,17 @@
-version: '3'
+version: 3
 
 tasks:
   CI:
     deps:
-      - test:tokio
-      - test:async-std
-      - test:smol
-      - test:glommio
-      - test:doc
+      - for:  [tokio, async-std, smol, glommio]
+        task: test:rt
+        vars: { rt: '{{.ITEM}}' }
+      - task: test:doc
 
-  test:tokio:
+  test:rt:
     cmds:
-      - cargo test --lib --features tokio
-  test:async-std:
-    cmds:
-      - cargo test --lib --features async-std
-  test:smol:
-    cmds:
-      - cargo test --lib --features smol
-  test:glommio:
-    cmds:
-      - cargo test --lib --features glommio
+      - cargo test --lib --features {{.rt}}
+
   test:doc:
     cmds:
       - cargo test --doc --features tokio,DEBUG

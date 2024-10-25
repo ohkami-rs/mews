@@ -41,7 +41,7 @@ async fn handle_websocket(
     req: &Request/* upgrade request */,
     tcp: TcpStream
 ) {
-    let ctx = WebSocketContext::server(
+    let ctx = WebSocketContext::new(
         &req.headers["Sec-WebSocket-Key"]
     );
 
@@ -71,7 +71,11 @@ async fn handle_websocket(
 async fn start_websocket(
     mut tcp: TcpStream
 ) {
-    let ctx = WebSocketContext::client();
+    let websocket_key = "my-sec-websocket-key";
+
+    let ctx = WebSocketContext::new(
+        websocket_key
+    );
 
     let (sign, ws) = ctx.on_upgrade(
         |mut conn: Connection| async move {
@@ -87,7 +91,7 @@ async fn start_websocket(
         .with(Connection, Upgrade)
         .with(Upgrade, "websocket")
         .with(SecWebSocketVersion, "13")
-        .with(SecWebSocketKey, "my-sec-websocket-key"),
+        .with(SecWebSocketKey, websocket_key),
         &mut tcp
     ).await.expect("failed to send handshake request");
 
