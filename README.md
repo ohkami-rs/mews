@@ -15,7 +15,7 @@
 
 MEWS is NOT WebSocket server, just protocol implementation. So :
 
-* Tend to be used by web frameworks internally, not by end-developers.
+* Tend to be used by web libraries internally, not by end-developers.
 
 * Doesn't builtins `wss://` support.
 
@@ -23,7 +23,7 @@ MEWS is NOT WebSocket server, just protocol implementation. So :
 
 * Minimal and Efficient : minimal codebase to provide efficient, memory-safe WebSocket handling.
 
-* Multiple Environment : `tokio`, `async-std`, `smol`, `glommio` are supported as async runtime ( by feature flags of the names ).
+* Multi Environment : `tokio`, `async-std`, `smol`, `glommio` are supported as async runtime ( by feature flags of the names ).
 
 ## Example
 
@@ -33,13 +33,15 @@ mews  = { version = "0.1", features = ["tokio"] }
 tokio = { version = "1",   features = ["rt"] }
 ```
 ```rust
+/* server */
+
 use mews::{WebSocketContext, Connection, Message};
 
 async fn handle_websocket(
     req: &Request/* upgrade request */,
     tcp: TcpStream
-) -> Response {
-    let ctx = WebSocketContext::new(
+) {
+    let ctx = WebSocketContext::server(
         &req.headers["Sec-WebSocket-Key"]
     );
 
@@ -53,12 +55,48 @@ async fn handle_websocket(
         }
     );
 
-    spawn(ws.manage(tcp));
+    send(Response::SwitchingProtocol()
+        .with(Connection, "Upgrade")
+        .with(Upgrade, "websocket")
+        .with(SecWebSocketAccept, sign),
+        &mut tcp
+    ).await.expect("failed to send handshake response");
 
-    /* return `Switching Protocol` response with `sign`... */
+    ws.manage(tcp);
+}
+```
+```rust
+/* client */
+
+async fn start_websocket(
+    mut tcp: TcpStream
+) {
+    let ctx = WebSocketContext::client();
+
+    let (sign, ws) = ctx.on_upgrade(
+        |mut conn: Connection| async move {
+            conn.send("Hello!").await.expect("failed to send message");
+            while let Ok(Some(Message::Text(text))) = conn.recv().await {
+                println!("got: `{text}`")
+            }
+        }
+    );
+
+    let res = send(Request::GET("/ws")
+        .with(Host, "localhost:3000")
+        .with(Connection, Upgrade)
+        .with(Upgrade, "websocket")
+        .with(SecWebSocketVersion, "13")
+        .with(SecWebSocketKey, "my-sec-websocket-key"),
+        &mut tcp
+    ).await.expect("failed to send handshake request");
+
+    assert!(res.header(SecWebSocketAccept), Some(sign));
+
+    ws.manage(tcp);
 }
 ```
 
-## LICENSE
+## License
 
 MEWS is licensed under MIT LICENSE ( [LICENSE](https://github.com/ohkami-rs/mews/blob/main/LICENSE) or [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT) ).
