@@ -10,6 +10,12 @@ pub trait IntoHandler<C: UnderlyingConnection, T> {
     fn into_handler(self) -> Handler<C>;
 }
 
+impl<C: UnderlyingConnection> IntoHandler<C, ()> for Handler<C> {
+    fn into_handler(self) -> Handler<C> {
+        self
+    }
+}
+
 impl<C: UnderlyingConnection, H, Fut> IntoHandler<C, fn(Connection<C>)> for H
 where
     H:   FnOnce(Connection<C>) -> Fut + Send + Sync + 'static,
