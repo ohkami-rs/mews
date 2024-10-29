@@ -444,12 +444,7 @@ pub mod split {
         /// 
         /// This panics if the original `Connection` is already closed.
         pub fn split(self) -> (ReadHalf<C::ReadHalf>, WriteHalf<C::WriteHalf>) {
-            #[cfg(feature="glommio")]
-            if !matches!(Arc::into_inner(self.__closed__).map(RwLock::into_inner), Some(Ok(false))) {
-                panic!("{ALREADY_CLOSED_MESSAGE}")
-            }
-            #[cfg(not(feature="glommio"))]
-            if Arc::into_inner(self.__closed__).map(RwLock::into_inner) != Some(false) {
+            if !(*self.__closed__.try_read().expect(ALREADY_CLOSED_MESSAGE) == false) {
                 panic!("{ALREADY_CLOSED_MESSAGE}")
             }
 
