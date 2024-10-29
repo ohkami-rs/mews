@@ -78,13 +78,11 @@ mod runtime {
 }
 
 pub mod connection;
-pub mod handler;
 pub mod frame;
 pub mod message;
 
 pub use connection::Connection;
 pub use connection::split::{self, ReadHalf, WriteHalf};
-pub use handler::Handler;
 pub use frame::CloseCode;
 pub use message::{Message, CloseFrame};
 
@@ -114,6 +112,11 @@ const _: () = {
         }
     }
 };
+
+pub type Handler<C> = Box<dyn
+    FnOnce(Connection<C>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>>
+    + Send + Sync
+>;
 
 /// *example.rs*
 /// ```
@@ -165,17 +168,17 @@ impl<'ctx> WebSocketContext<'ctx> {
     /// 
     /// ## handler
     /// 
-    /// Any `FnOnce + Send + Sync` returning `Send + Future`
-    /// with following args and `Output`:
-    /// 
-    /// * `(Connection) -> () | std::io::Result<()>`
-    /// * `(ReadHalf, WriteHalf) -> () | std::io::Result<()>`
-    pub fn on_upgrade<C: UnderlyingConnection, T>(self, handler: impl handler::IntoHandler<C, T>) -> (String, WebSocket<C>) {
+    /// any 'static `FnOnce(Connection<C>) -> {impl Future<Output = ()> + Send} + Send + Sync`
+    pub fn on_upgrade<C: UnderlyingConnection, H, F>(self, handler: H) -> (String, WebSocket<C>)
+    where
+        H: FnOnce(Connection<C>) -> F + Send + Sync + 'static,
+        F: std::future::Future<Output = ()> + Send + 'static
+    {
         (
             sign(self.sec_websocket_key),
             WebSocket {
                 config:  self.config,
-                handler: handler.into_handler(),
+                handler: Box::new(|c| Box::pin(handler(c)))
             }
         )
     }
