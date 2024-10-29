@@ -235,31 +235,36 @@ pub struct WebSocket<C: UnderlyingConnection = runtime::TcpStream> {
     handler: Handler<C>,
 }
 impl<C: UnderlyingConnection> WebSocket<C> {
+    /// manage a WebSocket session on the connection.
     pub async fn manage(self, conn: C) {
         let (conn, closer) = Connection::new(conn, self.config);
         (self.handler)(conn).await;
         closer.send_close_if_not_closed().await;
     }
 
-    pub async fn manage_with_timeout(self, timeout: std::time::Duration, conn: C) {
+    /// manage a WebSocket session on the connection with timeout.
+    /// 
+    /// returns `true` if session has been aborted by the timeout.
+    pub async fn manage_with_timeout(self, timeout: std::time::Duration, conn: C) -> bool {
         let (conn, closer) = Connection::new(conn, self.config);
 
         let is_timeouted = crate::timeout(timeout,
             (self.handler)(conn)
         ).await.is_none();
 
-        closer.send_close_if_not_closed_with(if is_timeouted {
-            eprintln!("[WARNING] WebSocket session is aborted by timeout");
-            CloseFrame {
+        if is_timeouted {
+            closer.send_close_if_not_closed_with(CloseFrame {
                 code:   CloseCode::Library(4000),
                 reason: Some("timeout".into())
-            }
+            }).await;
+            true
         } else {
-            CloseFrame {
+            closer.send_close_if_not_closed_with(CloseFrame {
                 code:   CloseCode::Normal,
                 reason: None
-            }
-        }).await;
+            }).await;
+            false
+        }
     }
 }
 const _: () = {
