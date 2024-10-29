@@ -8,9 +8,9 @@ homepage      = "https://crates.io/crates/mews"
 repository    = "https://github.com/ohkami-rs/mews"
 readme        = "README.md"
 license       = "MIT"
-description   = "Minimal and Efficient, Multi-Environment WebSocket implementation"
-keywords      = ["websocket", "io", "web"]
-categories    = ["web-programming::websocket", "network-programming"]
+description   = "Minimal and Efficient, Multi-Environment WebSocket implementation for async Rust"
+keywords      = ["websocket", "io", "web", "async"]
+categories    = ["web-programming::websocket", "network-programming", "asynchronous"]
 
 [package.metadata.docs.rs]
 features = ["tokio"]

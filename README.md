@@ -1,6 +1,6 @@
 <div align="center">
     <h1>MEWS</h1>
-    Minimal and Efficient, Multi-Environment WebSocket implementation for Rust
+    Minimal and Efficient, Multi-Environment WebSocket implementation for async Rust
 </div>
 
 <br>
@@ -11,6 +11,12 @@
     <a href="https://crates.io/crates/mews"><img alt="crates.io" src="https://img.shields.io/crates/v/mews" /></a>
 </div>
 
+## Features
+
+* Minimal and Efficient : minimal codebase to provide efficient, memory-safe WebSocket handling.
+
+* Multi Environment : `tokio`, `async-std`, `smol`, `glommio` are supported as async runtime ( by feature flags of the names ).
+
 ## Note
 
 MEWS is NOT WebSocket server, just protocol implementation. So :
@@ -18,12 +24,6 @@ MEWS is NOT WebSocket server, just protocol implementation. So :
 * Tend to be used by web libraries internally, not by end-developers.
 
 * Doesn't builtins `wss://` support.
-
-## Features
-
-* Minimal and Efficient : minimal codebase to provide efficient, memory-safe WebSocket handling.
-
-* Multi Environment : `tokio`, `async-std`, `smol`, `glommio` are supported as async runtime ( by feature flags of the names ).
 
 ## Example
 
