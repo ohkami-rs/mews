@@ -31,7 +31,9 @@ MEWS is NOT WebSocket server, just protocol implementation. So :
 [dependencies]
 mews  = { version = "0.1", features = ["tokio"] }
 tokio = { version = "1",   features = ["rt"] }
+# ...
 ```
+*( with pseudo Request & Response )*
 ```rust
 /* server */
 
