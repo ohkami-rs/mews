@@ -51,6 +51,22 @@ pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
         }
     }
 
+    const ALREADY_CLOSED_MESSAGE: &str = "\n\
+        |--------------------------------------------\n\
+        | WebSocket connection is already closed!   |\n\
+        |                                           |\n\
+        | Maybe you spawned tasks using connection  |\n\
+        | and NOT join/await the tasks?             |\n\
+        |                                           |\n\
+        | This is NOT supported because it may      |\n\
+        | cause resource leak due to something like |\n\
+        | an infinite loop or a dead lock in the    |\n\
+        | WebSocket handler.                        |\n\
+        | If you're doing it, please join/await the |\n\
+        | tasks in the handler!                     |\n\
+        --------------------------------------------|\n\
+    ";
+
     macro_rules! underlying {
         ($this:expr) => {async {
             let _: &mut Connection<_> = $this;
@@ -58,6 +74,8 @@ pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
                 #[cfg(feature="__splitref__")] {
                     // SAFETY: `$this` has unique access to `$this.conn` due to the
                     // mutable = exclusive reference
+                    // 
+                    // (this is based on the precondition that: `$this` and the closer are NOT used at the same time)
                     unsafe {&mut *$this.conn.get()}
                 }
                 #[cfg(feature="__clone__")] {
@@ -74,21 +92,7 @@ pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
         (@@checked $this:expr) => {{
             let _: Option<&mut _> = $this;
             $this.ok_or_else(|| {
-                #[cfg(debug_assertions)] eprintln! {"\n\
-                    |--------------------------------------------\n\
-                    | WebSocket connection is already closed!   |\n\
-                    |                                           |\n\
-                    | Maybe you spawned tasks using connection  |\n\
-                    | and NOT join/await the tasks?             |\n\
-                    |                                           |\n\
-                    | This is NOT supported because it may      |\n\
-                    | cause resource leak due to something like |\n\
-                    | an infinite loop or a dead lock in the    |\n\
-                    | WebSocket handler.                        |\n\
-                    | If you're doing it, please join/await the |\n\
-                    | tasks in the handler!                     |\n\
-                    --------------------------------------------|\n\
-                "}
+                #[cfg(debug_assertions)] eprintln! {"{ALREADY_CLOSED_MESSAGE}"}
                 ::std::io::Error::new(::std::io::ErrorKind::ConnectionReset, "WebSocket connection is already closed")
             })
         }};
@@ -436,23 +440,34 @@ pub mod split {
     }
 
     impl<C: UnderlyingConnection> Connection<C> {
-        /// SAFETY: MUST be called before user's handler
-        pub(crate) unsafe fn split(self) -> (ReadHalf<C::ReadHalf>, WriteHalf<C::WriteHalf>) {
-            #[cfg(feature="__splitref__")]
-            let conn = &mut *self.conn.get();
+        /// ## Panics
+        /// 
+        /// This panics if the original `Connection` is already closed.
+        pub fn split(self) -> (ReadHalf<C::ReadHalf>, WriteHalf<C::WriteHalf>) {
+            #[cfg(feature="glommio")]
+            if !matches!(Arc::into_inner(self.__closed__).map(RwLock::into_inner), Some(Ok(false))) {
+                panic!("{ALREADY_CLOSED_MESSAGE}")
+            }
+            #[cfg(not(feature="glommio"))]
+            if Arc::into_inner(self.__closed__).map(RwLock::into_inner) != Some(false) {
+                panic!("{ALREADY_CLOSED_MESSAGE}")
+            }
 
+            #[cfg(feature="__splitref__")]
+            let conn = unsafe {&mut *self.conn.get()};
             #[cfg(feature="__clone__")]
             let conn = self.conn;
 
             let (r, w) = conn.split();
+            let __closed__ = Arc::new(RwLock::new(false));
             (
                 ReadHalf  {
-                    __closed__: self.__closed__.clone(),
+                    __closed__: __closed__.clone(),
                     conn: r,
                     config: self.config.clone()
                 },
                 WriteHalf {
-                    __closed__: self.__closed__,
+                    __closed__,
                     conn: w,
                     config: self.config,
                     n_buffered: self.n_buffered
