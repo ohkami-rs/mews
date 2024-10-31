@@ -1,6 +1,6 @@
 [package]
 name          = "mews"
-version       = "0.1.0"
+version       = "0.1.1"
 edition       = "2021"
 authors       = ["kanarus <kanarus786@gmail.com>"]
 documentation = "https://docs.rs/mews"
@@ -33,10 +33,11 @@ smol      = ["__clone__",    "dep:smol"]
 glommio   = ["__splitref__", "dep:glommio", "dep:futures-util"]
 
 ### internal ###
-__splitref__ = []
-__clone__    = []
+__runtime__  = []
+__splitref__ = ["__runtime__"]
+__clone__    = ["__runtime__"]
 
 ####################################
 DEBUG = ["tokio?/rt"] ##############
-### default = ["tokio", "DEBUG"] ###
+default = ["tokio", "DEBUG"] ###
 ####################################
