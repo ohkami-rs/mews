@@ -7,6 +7,7 @@ tasks:
         task: test:rt
         vars: { rt: '{{.ITEM}}' }
       - task: test:doc
+      - task: check:no_runtime
 
   test:rt:
     cmds:
@@ -15,3 +16,7 @@ tasks:
   test:doc:
     cmds:
       - cargo test --doc --features tokio,DEBUG
+
+  check:no_runtime:
+    cmds:
+      - cargo check
