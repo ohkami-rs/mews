@@ -27,7 +27,7 @@ pub enum CloseCode {
     Iana(u16), Library(u16), Bad(u16),
 }
 
-const _: (/* `From` impls */) = {
+const _: (/* trait impls */) = {
     impl From<&str> for Message {
         fn from(string: &str) -> Self {
             Self::Text(string.to_string())
@@ -48,30 +48,52 @@ const _: (/* `From` impls */) = {
             Self::Binary(data)
         }
     }
+
+    impl From<u16> for CloseCode {
+        fn from(value: u16) -> Self {
+            Self::from_u16(value)
+        }
+    }
+    impl Into<u16> for CloseCode {
+        fn into(self) -> u16 {
+            self.as_u16()
+        }
+    }
 };
 
-#[cfg(feature="__runtime__")]
 impl CloseCode {
-    pub(super) fn from_bytes(bytes: [u8; 2]) -> Self {
-        let code = u16::from_be_bytes(bytes);
-        match code {
+    pub const fn from_u16(u16: u16) -> Self {
+        match u16 {
             1000 => Self::Normal, 1001 => Self::Away,      1002 => Self::Protocol, 1003 => Self::Unsupported,
             1005 => Self::Status, 1006 => Self::Abnormal,  1007 => Self::Invalid,  1008 => Self::Policy,
             1009 => Self::Size,   1010 => Self::Extension, 1011 => Self::Error,    1012 => Self::Restart,
             1013 => Self::Again,  1015 => Self::Tls,       1016..=2999 => Self::Reserved,
-            3000..=3999 => Self::Iana(code),   4000..=4999 => Self::Library(code),    _ => Self::Bad(code),
+            3000..=3999 => Self::Iana(u16),
+            4000..=4999 => Self::Library(u16),
+            _ => Self::Bad(u16),
         }
     }
-
-    #[inline]
-    pub(super) fn into_bytes(self) -> [u8; 2] {
-        u16::to_be_bytes(match self {
+    pub const fn as_u16(&self) -> u16 {
+        match self {
             Self::Normal => 1000, Self::Away      => 1001, Self::Protocol => 1002, Self::Unsupported => 1003,
             Self::Status => 1005, Self::Abnormal  => 1006, Self::Invalid  => 1007, Self::Policy      => 1008,
             Self::Size   => 1009, Self::Extension => 1010, Self::Error    => 1011, Self::Restart     => 1012,
             Self::Again  => 1013, Self::Tls       => 1015,
-            Self::Reserved => 1016, Self::Iana(code) | Self::Library(code) | Self::Bad(code) => code,
-        })
+            Self::Reserved => 1016,
+            Self::Iana(code) | Self::Library(code) | Self::Bad(code) => *code,
+        }
+    }
+}
+
+#[cfg(feature="__runtime__")]
+impl CloseCode {
+    pub(super) fn from_bytes(bytes: [u8; 2]) -> Self {
+        Self::from(u16::from_be_bytes(bytes))
+    }
+
+    #[inline]
+    pub(super) fn into_bytes(self) -> [u8; 2] {
+        u16::to_be_bytes(self.as_u16())
     }
 }
 
