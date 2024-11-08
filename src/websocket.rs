@@ -1,6 +1,5 @@
 use crate::runtime;
-use crate::frame::CloseCode;
-use crate::message::CloseFrame;
+use crate::message::{CloseFrame, CloseCode};
 use crate::connection::{UnderlyingConnection, Connection};
 
 /// **note** : currently, subprotocols via `Sec-WebSocket-Protocol` is not supported.

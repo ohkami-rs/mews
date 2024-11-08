@@ -6,17 +6,17 @@ tasks:
       - for:  [tokio, async-std, smol, glommio]
         task: test:rt
         vars: { rt: '{{.ITEM}}' }
+      - task: test:no_rt
       - task: test:doc
-      - task: check:no_runtime
 
   test:rt:
     cmds:
       - cargo test --lib --features {{.rt}}
 
+  test:no_rt:
+    cmds:
+      - cargo test
+
   test:doc:
     cmds:
       - cargo test --doc --features tokio,DEBUG
-
-  check:no_runtime:
-    cmds:
-      - cargo check
