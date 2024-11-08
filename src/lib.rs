@@ -75,20 +75,18 @@ mod runtime {
     };
 }
 
-#[cfg(feature="__runtime__")]
-pub mod connection;
+pub mod message;
 #[cfg(feature="__runtime__")]
 pub mod frame;
 #[cfg(feature="__runtime__")]
-pub mod message;
-#[cfg(feature="__runtime__")]
 pub mod websocket;
+#[cfg(feature="__runtime__")]
+pub mod connection;
 
+pub use message::{Message, CloseFrame, CloseCode};
 #[cfg(feature="__runtime__")]
 pub use {
     websocket::*,
     connection::Connection,
     connection::split::{self, ReadHalf, WriteHalf},
-    frame::CloseCode,
-    message::{Message, CloseFrame},
 };

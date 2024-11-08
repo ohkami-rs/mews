@@ -39,41 +39,13 @@ impl OpCode {
 }
 
 #[derive(Debug)]
-pub enum CloseCode {
-    Normal, Away, Protocol, Unsupported, Status, Abnormal, Invalid,
-    Policy, Size, Extension, Error, Restart, Again, Tls, Reserved,
-    Iana(u16), Library(u16), Bad(u16),
-}
-impl CloseCode {
-    pub(super) fn from_bytes(bytes: [u8; 2]) -> Self {
-        let code = u16::from_be_bytes(bytes);
-        match code {
-            1000 => Self::Normal, 1001 => Self::Away,      1002 => Self::Protocol, 1003 => Self::Unsupported,
-            1005 => Self::Status, 1006 => Self::Abnormal,  1007 => Self::Invalid,  1008 => Self::Policy,
-            1009 => Self::Size,   1010 => Self::Extension, 1011 => Self::Error,    1012 => Self::Restart,
-            1013 => Self::Again,  1015 => Self::Tls,       1016..=2999 => Self::Reserved,
-            3000..=3999 => Self::Iana(code),   4000..=4999 => Self::Library(code),    _ => Self::Bad(code),
-        }
-    }
-
-    #[inline]
-    pub(super) fn into_bytes(self) -> [u8; 2] {
-        u16::to_be_bytes(match self {
-            Self::Normal => 1000, Self::Away      => 1001, Self::Protocol => 1002, Self::Unsupported => 1003,
-            Self::Status => 1005, Self::Abnormal  => 1006, Self::Invalid  => 1007, Self::Policy      => 1008,
-            Self::Size   => 1009, Self::Extension => 1010, Self::Error    => 1011, Self::Restart     => 1012,
-            Self::Again  => 1013, Self::Tls       => 1015,
-            Self::Reserved => 1016, Self::Iana(code) | Self::Library(code) | Self::Bad(code) => code,
-        })
-    }
-}
-
-#[derive(Debug)]
 pub(crate) struct Frame {
     pub(crate) is_final: bool,
     pub(crate) opcode:   OpCode,
     pub(crate) payload:  Vec<u8>,
 }
+
+#[cfg(feature="__runtime__")]
 impl Frame {
     pub(crate) async fn read_from(
         stream: &mut (impl Read + Unpin),

@@ -1,10 +1,10 @@
-use std::borrow::Cow;
-use std::io::{Error, ErrorKind};
-use crate::runtime::{Read, Write};
-use super::{frame::{Frame, OpCode, CloseCode}, Config};
-
-
-const PING_PONG_PAYLOAD_LIMIT: usize = 125;
+#[cfg(feature="__runtime__")]
+use {
+    std::io::{Error, ErrorKind},
+    crate::runtime::{Read, Write},
+    crate::frame::{Frame, OpCode},
+    crate::Config,
+};
 
 #[derive(Debug)]
 pub enum Message {
@@ -18,7 +18,13 @@ pub enum Message {
 #[derive(Debug)]
 pub struct CloseFrame {
     pub code:   CloseCode,
-    pub reason: Option<Cow<'static, str>>,
+    pub reason: Option<std::borrow::Cow<'static, str>>,
+}
+#[derive(Debug)]
+pub enum CloseCode {
+    Normal, Away, Protocol, Unsupported, Status, Abnormal, Invalid,
+    Policy, Size, Extension, Error, Restart, Again, Tls, Reserved,
+    Iana(u16), Library(u16), Bad(u16),
 }
 
 const _: (/* `From` impls */) = {
@@ -44,18 +50,46 @@ const _: (/* `From` impls */) = {
     }
 };
 
+#[cfg(feature="__runtime__")]
+impl CloseCode {
+    pub(super) fn from_bytes(bytes: [u8; 2]) -> Self {
+        let code = u16::from_be_bytes(bytes);
+        match code {
+            1000 => Self::Normal, 1001 => Self::Away,      1002 => Self::Protocol, 1003 => Self::Unsupported,
+            1005 => Self::Status, 1006 => Self::Abnormal,  1007 => Self::Invalid,  1008 => Self::Policy,
+            1009 => Self::Size,   1010 => Self::Extension, 1011 => Self::Error,    1012 => Self::Restart,
+            1013 => Self::Again,  1015 => Self::Tls,       1016..=2999 => Self::Reserved,
+            3000..=3999 => Self::Iana(code),   4000..=4999 => Self::Library(code),    _ => Self::Bad(code),
+        }
+    }
+
+    #[inline]
+    pub(super) fn into_bytes(self) -> [u8; 2] {
+        u16::to_be_bytes(match self {
+            Self::Normal => 1000, Self::Away      => 1001, Self::Protocol => 1002, Self::Unsupported => 1003,
+            Self::Status => 1005, Self::Abnormal  => 1006, Self::Invalid  => 1007, Self::Policy      => 1008,
+            Self::Size   => 1009, Self::Extension => 1010, Self::Error    => 1011, Self::Restart     => 1012,
+            Self::Again  => 1013, Self::Tls       => 1015,
+            Self::Reserved => 1016, Self::Iana(code) | Self::Library(code) | Self::Bad(code) => code,
+        })
+    }
+}
+
+#[cfg(feature="__runtime__")]
 impl Message {
+    const PING_PONG_PAYLOAD_LIMIT: usize = 125;
+
     #[inline]
     pub(crate) fn into_frame(self) -> Frame {
         let (opcode, payload) = match self {
             Message::Text  (text)  => (OpCode::Text,   text.into_bytes()),
             Message::Binary(bytes) => (OpCode::Binary, bytes),
             Message::Ping(mut bytes) => {
-                bytes.truncate(PING_PONG_PAYLOAD_LIMIT);
+                bytes.truncate(Self::PING_PONG_PAYLOAD_LIMIT);
                 (OpCode::Ping, bytes)
             }
             Message::Pong(mut bytes) => {
-                bytes.truncate(PING_PONG_PAYLOAD_LIMIT);
+                bytes.truncate(Self::PING_PONG_PAYLOAD_LIMIT);
                 (OpCode::Ping, bytes)
             }
             Message::Close(close_frame) => {
@@ -146,14 +180,13 @@ impl Message {
 
             OpCode::Ping => {
                 let payload = first_frame.payload;
-                (payload.len() <= PING_PONG_PAYLOAD_LIMIT).then_some(())
+                (payload.len() <= Self::PING_PONG_PAYLOAD_LIMIT).then_some(())
                     .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Incoming ping payload is too large"))?;
-                // Message::Pong(payload.clone()).write(stream, config).await?;
                 Ok(Some(Message::Ping(payload)))
             }
             OpCode::Pong => {
                 let payload = first_frame.payload;
-                (payload.len() <= PING_PONG_PAYLOAD_LIMIT)
+                (payload.len() <= Self::PING_PONG_PAYLOAD_LIMIT)
                     .then_some(Some(Message::Pong(payload)))
                     .ok_or_else(|| Error::new(ErrorKind::InvalidData, "Incoming pong payload is too large"))
             }
@@ -164,7 +197,7 @@ impl Message {
                     (! payload.is_empty()).then(|| {
                         let (code_bytes, rem) = payload.split_at(2);
                         let code   = CloseCode::from_bytes(unsafe {(code_bytes.as_ptr() as *const [u8; 2]).read()});
-                        let reason = (! rem.is_empty()).then(|| Cow::Owned(String::from_utf8(rem.to_vec()).unwrap()));
+                        let reason = (! rem.is_empty()).then(|| String::from_utf8(rem.to_vec()).unwrap().into());
                         CloseFrame { code, reason }
                     })
                 )))
