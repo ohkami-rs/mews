@@ -230,7 +230,7 @@ fn with_timeout<T>(
 
     struct Timeout<Sleep, Proc> { sleep: Sleep, task: Proc }
 
-    #[cfg(feature="glommio")]
+    #[cfg(feature="rt_glommio")]
     // SAFETY: task and sleep are performed on same thread
     unsafe impl<Sleep, Proc> Send for Timeout<Sleep, Proc> {}
 

@@ -1,6 +1,6 @@
 [package]
 name          = "mews"
-version       = "0.1.3"
+version       = "0.1.4"
 edition       = "2021"
 authors       = ["kanarus <kanarus786@gmail.com>"]
 documentation = "https://docs.rs/mews"
@@ -13,12 +13,13 @@ keywords      = ["websocket", "io", "web", "async"]
 categories    = ["web-programming::websocket", "network-programming", "asynchronous"]
 
 [package.metadata.docs.rs]
-features = ["tokio"]
+features = ["rt_tokio"]
 
 [dependencies]
 tokio     = { optional = true, version = "1", features = ["net", "io-util", "sync", "time"] }
 async-std = { optional = true, version = "1"   }
 smol      = { optional = true, version = "2"   }
+nio       = { optional = true, version = "0.0" }
 glommio   = { optional = true, version = "0.9" }
 
 futures-util = { optional = true, version = "0.3", default-features = false, features = ["io"] }
@@ -27,17 +28,18 @@ sha1   = { version = "0.10", default-features = false }
 base64 = { version = "0.22" }
 
 [features]
-tokio     = ["__splitref__", "dep:tokio"]
-async-std = ["__clone__",    "dep:async-std"]
-smol      = ["__clone__",    "dep:smol"]
-glommio   = ["__splitref__", "dep:glommio", "dep:futures-util"]
+rt_tokio     = ["__splitref__", "dep:tokio","tokio/net","tokio/io-util","tokio/sync","tokio/time"]
+rt_async-std = ["__clone__",    "dep:async-std"]
+rt_smol      = ["__clone__",    "dep:smol"]
+rt_nio       = ["__splitref__", "dep:nio",     "dep:tokio","tokio/io-util"]
+rt_glommio   = ["__splitref__", "dep:glommio", "dep:futures-util"]
 
 ### internal ###
 __runtime__  = []
 __splitref__ = ["__runtime__"]
 __clone__    = ["__runtime__"]
 
-####################################
-DEBUG = ["tokio?/rt"] ##############
-### default = ["tokio", "DEBUG"] ###
-####################################
+#####################################
+DEBUG = ["tokio?/rt"] ###############
+## default = ["rt_tokio", "DEBUG"] ##
+#####################################

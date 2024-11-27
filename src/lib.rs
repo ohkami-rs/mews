@@ -26,16 +26,16 @@
 //! * Doesn't builtins `wss://` support.
 
 #[cfg(any(
-    all(feature="tokio", any(feature="async-std",feature="smol",feature="glommio")),
-    all(feature="async-std", any(feature="smol",feature="glommio",feature="tokio")),
-    all(feature="smol", any(feature="glommio",feature="tokio",feature="async-std")),
-    all(feature="glommio", any(feature="tokio", feature="async-std",feature="smol",)),
+    all(feature="rt_tokio", any(feature="rt_async-std",feature="rt_smol",feature="rt_glommio")),
+    all(feature="rt_async-std", any(feature="rt_smol",feature="rt_glommio",feature="rt_tokio")),
+    all(feature="rt_smol", any(feature="rt_glommio",feature="rt_tokio",feature="rt_async-std")),
+    all(feature="rt_glommio", any(feature="rt_tokio", feature="rt_async-std",feature="rt_smol",)),
 ))]
 compile_error! {"More than one runtime feature flags can't be activated"}
 
 #[cfg(feature="__runtime__")]
 mod runtime {
-    #[cfg(feature="tokio")]
+    #[cfg(feature="rt_tokio")]
     pub use {
         tokio::net::TcpStream,
         tokio::io::AsyncReadExt as Read,
@@ -44,7 +44,7 @@ mod runtime {
         tokio::time::sleep
     };
 
-    #[cfg(feature="async-std")]
+    #[cfg(feature="rt_async-std")]
     pub use {
         async_std::net::TcpStream,
         async_std::io::ReadExt as Read,
@@ -53,19 +53,28 @@ mod runtime {
         async_std::task::sleep
     };
 
-    #[cfg(feature="smol")]
+    #[cfg(feature="rt_smol")]
     pub use {
         smol::net::TcpStream,
         smol::io::AsyncReadExt as Read,
         smol::io::AsyncWriteExt as Write,
         smol::lock::RwLock,
     };
-    #[cfg(feature="smol")]
+    #[cfg(feature="rt_smol")]
     pub async fn sleep(duration: std::time::Duration) {
         smol::Timer::after(duration).await;
     }
 
-    #[cfg(feature="glommio")]
+    #[cfg(feature="rt_nio")]
+    pub use {
+        nio::net::TcpStream,
+        tokio::io::AsyncReadExt as Read,
+        tokio::io::AsyncWriteExt as Write,
+        tokio::sync::RwLock,
+        nio::time::sleep
+    };
+
+    #[cfg(feature="rt_glommio")]
     pub use {
         glommio::net::TcpStream,
         futures_util::AsyncReadExt as Read,

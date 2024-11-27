@@ -15,7 +15,7 @@
 
 * Minimal and Efficient : minimal codebase to provide efficient, memory-safe WebSocket handling.
 
-* Multi Environment : `tokio`, `async-std`, `smol`, `glommio` are supported as async runtime ( by feature flags of the names ).
+* Multi Environment : `tokio`, `async-std`, `smol`, `nio`, `glommio` are supported as async runtime ( by feature flags `rt_{name}` ).
 
 ## Note
 
@@ -29,7 +29,7 @@ MEWS is NOT WebSocket server, just protocol implementation. So :
 
 ```toml
 [dependencies]
-mews  = { version = "0.1", features = ["tokio"] }
+mews  = { version = "0.1", features = ["rt_tokio"] }
 tokio = { version = "1",   features = ["rt"] }
 # ...
 ```

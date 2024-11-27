@@ -31,22 +31,22 @@ pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
 /*============================================================*/
     #[inline(always)]
     async fn read_closed(__closed__: &RwLock<bool>) -> bool {
-        #[cfg(feature="glommio")]
+        #[cfg(feature="rt_glommio")]
         match __closed__.read().await {
             Ok(read) => *read,
             Err(_/* closed */) => true
         }
-        #[cfg(not(feature="glommio"))]
+        #[cfg(not(feature="rt_glommio"))]
         *__closed__.read().await
     }
     #[inline(always)]
     async fn set_closed(__closed__: &RwLock<bool>) {
-        #[cfg(feature="glommio")] {
+        #[cfg(feature="rt_glommio")] {
             if let Ok(mut write) = __closed__.write().await {
                 *write = true
             }
         }
-        #[cfg(not(feature="glommio"))] {
+        #[cfg(not(feature="rt_glommio"))] {
             *__closed__.write().await = true
         }
     }
@@ -341,17 +341,25 @@ pub mod split {
 
     #[cfg(feature="__splitref__")]
     const _: () = {
-        #[cfg(feature="tokio")]
+        #[cfg(feature="rt_tokio")]
         impl<'split> Splitable<'split> for tokio::net::TcpStream {
-            type ReadHalf = tokio::net::tcp::ReadHalf<'split>;
+            type ReadHalf  = tokio::net::tcp::ReadHalf <'split>;
             type WriteHalf = tokio::net::tcp::WriteHalf<'split>;
             fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
                 <tokio::net::TcpStream>::split(self)
             }
         }
-        #[cfg(feature="glommio")]
+        #[cfg(feature="rt_nio")]
+        impl<'split> Splitable<'split> for nio::net::TcpStream {
+            type ReadHalf  = nio::net::tcp::ReadHalf <'split>;
+            type WriteHalf = nio::net::tcp::WriteHalf<'split>;
+            fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
+                <nio::net::TcpStream>::split(self)
+            }
+        }
+        #[cfg(feature="rt_glommio")]
         impl<'split, T: Read + Write + Unpin + 'split> Splitable<'split> for T {
-            type ReadHalf = futures_util::io::ReadHalf<&'split mut T>;
+            type ReadHalf  = futures_util::io::ReadHalf <&'split mut T>;
             type WriteHalf = futures_util::io::WriteHalf<&'split mut T>;
             fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
                 Read::split(self)
