@@ -3,7 +3,7 @@ version: 3
 tasks:
   CI:
     deps:
-      - for:  [tokio, async-std, smol, glommio]
+      - for:  [tokio, async-std, smol, nio, glommio]
         task: test:rt
         vars: { rt: '{{.ITEM}}' }
       - task: test:no_rt
@@ -11,7 +11,7 @@ tasks:
 
   test:rt:
     cmds:
-      - cargo test --lib --features {{.rt}}
+      - cargo test --lib --features rt_{{.rt}}
 
   test:no_rt:
     cmds:
@@ -19,4 +19,4 @@ tasks:
 
   test:doc:
     cmds:
-      - cargo test --doc --features tokio,DEBUG
+      - cargo test --doc --features rt_tokio,DEBUG
