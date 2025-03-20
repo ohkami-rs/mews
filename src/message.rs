@@ -1,7 +1,7 @@
 #[cfg(feature="__runtime__")]
 use {
     std::io::{Error, ErrorKind},
-    crate::runtime::{Read, Write},
+    crate::runtime::{AsyncRead, AsyncWrite},
     crate::frame::{Frame, OpCode},
     crate::Config,
 };
@@ -130,7 +130,7 @@ impl Message {
 
     #[inline]
     pub(crate) async fn write(self,
-        stream: &mut (impl Write + Unpin),
+        stream: &mut (impl AsyncWrite + Unpin),
         config: &Config,
     ) -> Result<usize, Error> {
         self.into_frame().write_unmasked(stream, config).await
@@ -138,7 +138,7 @@ impl Message {
     
     /// Read a `Message` from a WebSocket connection.
     pub(crate) async fn read_from(
-        stream: &mut (impl Read + Unpin),
+        stream: &mut (impl AsyncRead + Unpin),
         config: &Config,
     ) -> Result<Option<Self>, Error> {
         let Some(first_frame) = Frame::read_from(stream, config).await? else {
