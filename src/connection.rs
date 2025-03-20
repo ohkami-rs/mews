@@ -2,23 +2,13 @@ use crate::{Config, Message};
 use crate::runtime::{Read, Write, RwLock};
 use std::{sync::Arc, io::Error};
 
-#[cfg(feature="__splitref__")]
 pub trait UnderlyingConnection: Read + Write + Unpin + 'static {}
-#[cfg(feature="__splitref__")]
 impl<T: Read + Write + Unpin + 'static> UnderlyingConnection for T {}
-
-#[cfg(feature="__clone__")]
-pub trait UnderlyingConnection: Read + Write + Unpin + Clone + 'static {}
-#[cfg(feature="__clone__")]
-impl<T: Read + Write + Unpin + Clone + 'static> UnderlyingConnection for T {}
 
 pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
     __closed__: Arc<RwLock<bool>>,
 
-    #[cfg(feature="__splitref__")]
     conn: Arc<std::cell::UnsafeCell<C>>,
-    #[cfg(feature="__clone__")]
-    conn: C,
 
     config:     Config,
     n_buffered: usize,
@@ -69,16 +59,11 @@ pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
         ($this:expr) => {async {
             let _: &mut Connection<_> = $this;
             let conn = (!read_closed(&$this.__closed__).await).then(|| {
-                #[cfg(feature="__splitref__")] {
-                    // SAFETY: `$this` has unique access to `$this.conn` due to the
-                    // mutable = exclusive reference
-                    // 
-                    // (this is based on the precondition that: `$this` and the closer are NOT used at the same time)
-                    unsafe {&mut *$this.conn.get()}
-                }
-                #[cfg(feature="__clone__")] {
-                    &mut $this.conn
-                }
+                // SAFETY: `$this` has unique access to `$this.conn` due to the
+                // mutable = exclusive reference
+                // 
+                // (this is based on the precondition that: `$this` and the closer are NOT used at the same time)
+                unsafe {&mut *$this.conn.get()}
             });
             underlying!(@@checked conn)
         }};
@@ -97,15 +82,8 @@ pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
     }
     #[inline(always)]
     async fn to_checked_parts<C: UnderlyingConnection>(connection: &mut Connection<C>) -> Result<(&mut C, &Config, &mut usize), Error> {
-        #[cfg(feature="__splitref__")] {
-            let conn = underlying!(connection).await?;
-            return Ok((conn, &connection.config, &mut connection.n_buffered))
-        }
-        #[cfg(feature="__clone__")] {
-            let Connection { conn, __closed__, config, n_buffered } = connection;
-            let conn = underlying!(__closed__, conn).await?;
-            return Ok((conn, config, n_buffered))
-        }
+        let conn = underlying!(connection).await?;
+        return Ok((conn, &connection.config, &mut connection.n_buffered))
     }
 
     #[inline]
@@ -156,14 +134,7 @@ const _: (/* trait impls */) = {
     impl<C: UnderlyingConnection + std::fmt::Debug> std::fmt::Debug for Connection<C> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("WebSocket Connection")
-                .field("underlying", {
-                    #[cfg(feature="__splitref__")] {
-                        &unsafe {&*self.conn.get()}
-                    }
-                    #[cfg(feature="__clone__")] {
-                        &self.conn
-                    }
-                })
+                .field("underlying", &unsafe {&*self.conn.get()})
                 .field("config", &self.config)
                 .field("n_buffered", &self.n_buffered)
                 .finish()
@@ -242,11 +213,8 @@ impl<C: UnderlyingConnection> Connection<C> {
     /// }
     /// ```
     pub fn new(conn: C, config: Config) -> (Self, Closer<C>) {
-        #[cfg(feature="__splitref__")]
         let conn = Arc::new(std::cell::UnsafeCell::new(conn));
-
         let __closed__ = Arc::new(RwLock::new(false));
-
         (
             Self { conn: conn.clone(), __closed__: __closed__.clone(), config: config.clone(), n_buffered: 0 },
             Closer(Connection { conn, __closed__, config, n_buffered: 0 })
@@ -324,17 +292,10 @@ impl<C: UnderlyingConnection> Connection<C> {
 pub mod split {
     use super::*;
     
-    #[cfg(feature="__splitref__")]
     pub trait Splitable<'split>: Read + Write + Unpin + Sized {
         type ReadHalf: Read + Unpin;
         type WriteHalf: Write + Unpin;
         fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf);
-    }
-    #[cfg(feature="__clone__")] /* `'split`: Just a dummy param */
-    pub trait Splitable<'split>: Read + Write + Unpin + Sized + Clone {
-        type ReadHalf: Read + Unpin;
-        type WriteHalf: Write + Unpin;
-        fn split(self) -> (Self::ReadHalf, Self::WriteHalf);
     }
 
     impl<C: UnderlyingConnection> Connection<C>
@@ -352,10 +313,7 @@ pub mod split {
                 panic!("{ALREADY_CLOSED_MESSAGE}")
             }
 
-            #[cfg(feature="__splitref__")]
             let conn = unsafe {&mut *self.conn.get()};
-            #[cfg(feature="__clone__")]
-            let conn = self.conn;
 
             let (r, w) = conn.split();
             let __closed__ = Arc::new(RwLock::new(false));
@@ -404,10 +362,10 @@ pub mod split {
     };
     #[cfg(feature="__clone__")]
     const _: () = {
-        impl<'split, C: Read + Write + Unpin + Sized + Clone> Splitable<'split> for C {
+        impl<'split, C: Read + Write + Unpin + Sized + Clone + 'split> Splitable<'split> for C {
             type ReadHalf = Self;
-            type WriteHalf = Self;
-            fn split(self) -> (Self::ReadHalf, Self::WriteHalf) {
+            type WriteHalf = &'split mut Self;
+            fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
                 (self.clone(), self)
             }
         }
