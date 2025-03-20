@@ -134,14 +134,7 @@ const _: (/* trait impls */) = {
     impl<C: UnderlyingConnection + std::fmt::Debug> std::fmt::Debug for Connection<C> {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("WebSocket Connection")
-                .field("underlying", {
-                    #[cfg(feature="__splitref__")] {
-                        &unsafe {&*self.conn.get()}
-                    }
-                    #[cfg(feature="__clone__")] {
-                        &self.conn
-                    }
-                })
+                .field("underlying", &unsafe {&*self.conn.get()})
                 .field("config", &self.config)
                 .field("n_buffered", &self.n_buffered)
                 .finish()
