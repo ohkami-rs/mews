@@ -39,8 +39,8 @@ mod runtime {
     #[cfg(feature="rt_tokio")]
     pub use {
         tokio::net::TcpStream,
-        tokio::io::AsyncReadExt as Read,
-        tokio::io::AsyncWriteExt as Write,
+        tokio::io::AsyncReadExt as AsyncRead,
+        tokio::io::AsyncWriteExt as AsyncWrite,
         tokio::sync::RwLock,
         tokio::time::sleep
     };
@@ -48,8 +48,8 @@ mod runtime {
     #[cfg(feature="rt_async-std")]
     pub use {
         async_std::net::TcpStream,
-        async_std::io::ReadExt as Read,
-        async_std::io::WriteExt as Write,
+        async_std::io::ReadExt as AsyncRead,
+        async_std::io::WriteExt as AsyncWrite,
         async_std::sync::RwLock,
         async_std::task::sleep
     };
@@ -57,8 +57,8 @@ mod runtime {
     #[cfg(feature="rt_smol")]
     pub use {
         smol::net::TcpStream,
-        smol::io::AsyncReadExt as Read,
-        smol::io::AsyncWriteExt as Write,
+        smol::io::AsyncReadExt as AsyncRead,
+        smol::io::AsyncWriteExt as AsyncWrite,
         smol::lock::RwLock,
     };
     #[cfg(feature="rt_smol")]
@@ -69,8 +69,8 @@ mod runtime {
     #[cfg(feature="rt_nio")]
     pub use {
         nio::net::TcpStream,
-        tokio::io::AsyncReadExt as Read,
-        tokio::io::AsyncWriteExt as Write,
+        tokio::io::AsyncReadExt as AsyncRead,
+        tokio::io::AsyncWriteExt as AsyncWrite,
         tokio::sync::RwLock,
         nio::time::sleep
     };
@@ -78,8 +78,8 @@ mod runtime {
     #[cfg(feature="rt_glommio")]
     pub use {
         glommio::net::TcpStream,
-        futures_util::AsyncReadExt as Read,
-        futures_util::AsyncWriteExt as Write,
+        futures_util::AsyncReadExt as AsyncRead,
+        futures_util::AsyncWriteExt as AsyncWrite,
         glommio::sync::RwLock,
         glommio::timer::sleep
     };

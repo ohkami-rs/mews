@@ -1,9 +1,9 @@
 use crate::{Config, Message};
-use crate::runtime::{Read, Write, RwLock};
+use crate::runtime::{AsyncRead, AsyncWrite, RwLock};
 use std::{sync::Arc, io::Error};
 
-pub trait UnderlyingConnection: Read + Write + Unpin + 'static {}
-impl<T: Read + Write + Unpin + 'static> UnderlyingConnection for T {}
+pub trait UnderlyingConnection: AsyncRead + AsyncWrite + Unpin + 'static {}
+impl<T: AsyncRead + AsyncWrite + Unpin + 'static> UnderlyingConnection for T {}
 
 pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
     __closed__: Arc<RwLock<bool>>,
@@ -89,7 +89,7 @@ pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
     #[inline]
     pub(super) async fn send(
         message:    Message,
-        conn:       &mut (impl Write + Unpin),
+        conn:       &mut (impl AsyncWrite + Unpin),
         config:     &Config,
         n_buffered: &mut usize,
     ) -> Result<(), Error> {
@@ -100,7 +100,7 @@ pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
     #[inline]
     pub(super) async fn write(
         message:    Message,
-        conn:       &mut (impl Write + Unpin),
+        conn:       &mut (impl AsyncWrite + Unpin),
         config:     &Config,
         n_buffered: &mut usize,
     ) -> Result<usize, Error> {
@@ -117,7 +117,7 @@ pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
     }
     #[inline]
     pub(super) async fn flush(
-        conn:       &mut (impl Write + Unpin),
+        conn:       &mut (impl AsyncWrite + Unpin),
         n_buffered: &mut usize,
     ) -> Result<(), Error> {
         conn.flush().await
@@ -292,9 +292,9 @@ impl<C: UnderlyingConnection> Connection<C> {
 pub mod split {
     use super::*;
     
-    pub trait Splitable<'split>: Read + Write + Unpin + Sized {
-        type ReadHalf: Read + Unpin;
-        type WriteHalf: Write + Unpin;
+    pub trait Splitable<'split>: AsyncRead + AsyncWrite + Unpin + Sized {
+        type ReadHalf: AsyncRead + Unpin;
+        type WriteHalf: AsyncWrite + Unpin;
         fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf);
     }
 
@@ -352,17 +352,17 @@ pub mod split {
             }
         }
         #[cfg(feature="rt_glommio")]
-        impl<'split, T: Read + Write + Unpin + 'split> Splitable<'split> for T {
+        impl<'split, T: AsyncRead + AsyncWrite + Unpin + 'split> Splitable<'split> for T {
             type ReadHalf  = futures_util::io::ReadHalf <&'split mut T>;
             type WriteHalf = futures_util::io::WriteHalf<&'split mut T>;
             fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
-                Read::split(self)
+                AsyncRead::split(self)
             }
         }
     };
     #[cfg(feature="__clone__")]
     const _: () = {
-        impl<'split, C: Read + Write + Unpin + Sized + Clone + 'split> Splitable<'split> for C {
+        impl<'split, C: AsyncRead + AsyncWrite + Unpin + Sized + Clone + 'split> Splitable<'split> for C {
             type ReadHalf = Self;
             type WriteHalf = &'split mut Self;
             fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
@@ -371,12 +371,12 @@ pub mod split {
         }
     };
 
-    pub struct ReadHalf<C: Read + Unpin = <crate::runtime::TcpStream as Splitable<'static>>::ReadHalf> {
+    pub struct ReadHalf<C: AsyncRead + Unpin = <crate::runtime::TcpStream as Splitable<'static>>::ReadHalf> {
         __closed__: Arc<RwLock<bool>>,
         conn:   C,
         config: Config,
     }
-    impl<C: Read + Unpin> ReadHalf<C> {
+    impl<C: AsyncRead + Unpin> ReadHalf<C> {
         /// Await a message from the client and recieve it.
         /// 
         /// **note** : This doesn't automatically handle `Ping` message
@@ -389,13 +389,13 @@ pub mod split {
         }
     }
 
-    pub struct WriteHalf<C: Write + Unpin = <crate::runtime::TcpStream as Splitable<'static>>::WriteHalf> {
+    pub struct WriteHalf<C: AsyncWrite + Unpin = <crate::runtime::TcpStream as Splitable<'static>>::WriteHalf> {
         __closed__: Arc<RwLock<bool>>,
         conn:       C,
         config:     Config,
         n_buffered: usize,
     }
-    impl<C: Write + Unpin> WriteHalf<C> {
+    impl<C: AsyncWrite + Unpin> WriteHalf<C> {
         /// Send a message to the client.
         /// 
         /// **note** : When sending a `Close` message, this automatically close the
