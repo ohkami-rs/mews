@@ -29,7 +29,7 @@ MEWS is NOT WebSocket server, just protocol implementation. So :
 
 ```toml
 [dependencies]
-mews  = { version = "0.3", features = ["rt_tokio"] }
+mews  = { version = "0.2", features = ["rt_tokio"] }
 tokio = { version = "1",   features = ["rt"] }
 # ...
 ```
