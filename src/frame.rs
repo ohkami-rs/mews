@@ -1,5 +1,5 @@
 use std::io::{Error, ErrorKind};
-use crate::runtime::{Read, Write};
+use crate::runtime::{AsyncRead, AsyncWrite};
 use crate::Config;
 
 
@@ -48,7 +48,7 @@ pub(crate) struct Frame {
 #[cfg(feature="__runtime__")]
 impl Frame {
     pub(crate) async fn read_from(
-        stream: &mut (impl Read + Unpin),
+        stream: &mut (impl AsyncRead + Unpin),
         config: &Config,
     ) -> Result<Option<Self>, Error> {
         let [first, second] = {
@@ -121,7 +121,7 @@ impl Frame {
     }
 
     pub(crate) async fn write_unmasked(self,
-        stream:  &mut (impl Write + Unpin),
+        stream:  &mut (impl AsyncWrite + Unpin),
         _config: &Config,
     ) -> Result<usize, Error> {
         fn into_bytes(frame: Frame) -> Vec<u8> {
