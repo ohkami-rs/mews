@@ -2,8 +2,15 @@ use crate::{Config, Message};
 use crate::runtime::{Read, Write, RwLock};
 use std::{sync::Arc, io::Error};
 
+#[cfg(feature="__splitref__")]
 pub trait UnderlyingConnection: Read + Write + Unpin + 'static {}
+#[cfg(feature="__splitref__")]
 impl<T: Read + Write + Unpin + 'static> UnderlyingConnection for T {}
+
+#[cfg(feature="__clone__")]
+pub trait UnderlyingConnection: Read + Write + Unpin + Clone + 'static {}
+#[cfg(feature="__clone__")]
+impl<T: Read + Write + Unpin + Clone + 'static> UnderlyingConnection for T {}
 
 pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
     __closed__: Arc<RwLock<bool>>,
@@ -212,7 +219,7 @@ impl<C: UnderlyingConnection> Connection<C> {
     /// create 2 WebSocket connections for
     /// 
     /// 1. used to handle WebSocket session
-    /// 2. used to ensure to send a close message (`Cloder`)
+    /// 2. used to ensure to send a close message (`Closer`)
     /// 
     /// *example.rs*
     /// ```
