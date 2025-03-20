@@ -2,17 +2,15 @@ use crate::{Config, Message};
 use crate::runtime::{Read, Write, RwLock};
 use std::{sync::Arc, io::Error};
 
-// Why 'static lifetime?
-// 
-// [__splitref__]
-// 1. The underlying connection is in `Arc`
-// 2. The closer returned from `Connection::new` is expected to be alive until WebSocket session completes
-// 3. This split is expected to be called before user's handler is called
-// 
-// [__clone__]
-// Just a dummy lifetime paramter to have the same signature of it in __splitref__
-pub trait UnderlyingConnection: Read + Write + Unpin + split::Splitable<'static> + 'static {}
-impl<T: Read + Write + Unpin + split::Splitable<'static> + 'static> UnderlyingConnection for T {}
+#[cfg(feature="__splitref__")]
+pub trait UnderlyingConnection: Read + Write + Unpin + 'static {}
+#[cfg(feature="__splitref__")]
+impl<T: Read + Write + Unpin + 'static> UnderlyingConnection for T {}
+
+#[cfg(feature="__clone__")]
+pub trait UnderlyingConnection: Read + Write + Unpin + Clone + 'static {}
+#[cfg(feature="__clone__")]
+impl<T: Read + Write + Unpin + Clone + 'static> UnderlyingConnection for T {}
 
 pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
     __closed__: Arc<RwLock<bool>>,
@@ -221,7 +219,7 @@ impl<C: UnderlyingConnection> Connection<C> {
     /// create 2 WebSocket connections for
     /// 
     /// 1. used to handle WebSocket session
-    /// 2. used to ensure to send a close message (`Cloder`)
+    /// 2. used to ensure to send a close message (`Closer`)
     /// 
     /// *example.rs*
     /// ```
@@ -339,6 +337,44 @@ pub mod split {
         fn split(self) -> (Self::ReadHalf, Self::WriteHalf);
     }
 
+    impl<C: UnderlyingConnection> Connection<C>
+    where
+        C: for<'s> Splitable<'s>,
+    {
+        /// ## Panics
+        /// 
+        /// This panics if the original `Connection` is already closed.
+        pub fn split(self) -> (
+            ReadHalf<<C as Splitable<'static>>::ReadHalf>,
+            WriteHalf<<C as Splitable<'static>>::WriteHalf>,
+        ) {
+            if !(*self.__closed__.try_read().expect(ALREADY_CLOSED_MESSAGE) == false) {
+                panic!("{ALREADY_CLOSED_MESSAGE}")
+            }
+
+            #[cfg(feature="__splitref__")]
+            let conn = unsafe {&mut *self.conn.get()};
+            #[cfg(feature="__clone__")]
+            let conn = self.conn;
+
+            let (r, w) = conn.split();
+            let __closed__ = Arc::new(RwLock::new(false));
+            (
+                ReadHalf  {
+                    __closed__: __closed__.clone(),
+                    conn: r,
+                    config: self.config.clone()
+                },
+                WriteHalf {
+                    __closed__,
+                    conn: w,
+                    config: self.config,
+                    n_buffered: self.n_buffered
+                },
+            )
+        }
+    }
+
     #[cfg(feature="__splitref__")]
     const _: () = {
         #[cfg(feature="rt_tokio")]
@@ -444,38 +480,6 @@ pub mod split {
             let conn = underlying!(__closed__, conn).await?;
 
             flush(conn, n_buffered).await
-        }
-    }
-
-    impl<C: UnderlyingConnection> Connection<C> {
-        /// ## Panics
-        /// 
-        /// This panics if the original `Connection` is already closed.
-        pub fn split(self) -> (ReadHalf<C::ReadHalf>, WriteHalf<C::WriteHalf>) {
-            if !(*self.__closed__.try_read().expect(ALREADY_CLOSED_MESSAGE) == false) {
-                panic!("{ALREADY_CLOSED_MESSAGE}")
-            }
-
-            #[cfg(feature="__splitref__")]
-            let conn = unsafe {&mut *self.conn.get()};
-            #[cfg(feature="__clone__")]
-            let conn = self.conn;
-
-            let (r, w) = conn.split();
-            let __closed__ = Arc::new(RwLock::new(false));
-            (
-                ReadHalf  {
-                    __closed__: __closed__.clone(),
-                    conn: r,
-                    config: self.config.clone()
-                },
-                WriteHalf {
-                    __closed__,
-                    conn: w,
-                    config: self.config,
-                    n_buffered: self.n_buffered
-                },
-            )
         }
     }
 }
