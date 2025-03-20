@@ -98,5 +98,5 @@ pub use message::{Message, CloseFrame, CloseCode};
 pub use {
     websocket::*,
     connection::Connection,
-    connection::split::{Splitable, ReadHalf, WriteHalf},
+    connection::split::{self, Splitable, ReadHalf, WriteHalf},
 };
