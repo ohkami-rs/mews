@@ -1,6 +1,6 @@
 [package]
 name          = "mews"
-version       = "0.2.1"
+version       = "0.2.2"
 edition       = "2021"
 authors       = ["kanarus <kanarus786@gmail.com>"]
 documentation = "https://docs.rs/mews"
@@ -16,10 +16,14 @@ categories    = ["web-programming::websocket", "network-programming", "asynchron
 features = ["rt_tokio"]
 
 [dependencies]
+# @2025-08-02
+# fixing nio to =0.0.0, dispite 0.0.1 published, to successfully compile.
+# socket2 >= 0.5.10 contains [Add cygwin support](https://github.com/rust-lang/socket2/pull/568),
+# which is not covered by [nio 0.0.1](https://github.com/nurmohammed840/nio/blob/5f7c1d92032e42be13a577c21aa987bf053aaf77/src/net/tcp/socket.rs#L155-L165)
 tokio     = { optional = true, version = "1", features = ["net", "io-util", "sync", "time"] }
 async-std = { optional = true, version = "1"   }
 smol      = { optional = true, version = "2"   }
-nio       = { optional = true, version = "0.0" }
+nio       = { optional = true, version = "=0.0.0" }
 glommio   = { optional = true, version = "0.9" }
 
 futures-util = { optional = true, version = "0.3", default-features = false, features = ["io"] }
