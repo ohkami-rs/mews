@@ -15,7 +15,7 @@
 //! 
 //! * Minimal and Efficient : minimal codebase to provide efficient, memory-safe WebSocket handling.
 //! 
-//! * Multiple Environment : `tokio`, `async-std`, `smol`, `nio`, `glommio` are supported as async runtime ( by feature flags `rt_{name}` ).
+//! * Multiple Environment : `tokio`, `smol`, `glommio` are supported as async runtime ( by feature flags `rt_{name}` ).
 //! 
 //! ## Note
 //! 
@@ -26,11 +26,9 @@
 //! * Doesn't builtins `wss://` support.
 
 #[cfg(any(
-    all(feature="rt_tokio",     any(feature="rt_async-std", feature="rt_smol",      feature="rt_nio",       feature="rt_glommio"  )),
-    all(feature="rt_async-std", any(feature="rt_smol",      feature="rt_nio",       feature="rt_glommio",   feature="rt_tokio"    )),
-    all(feature="rt_smol",      any(feature="rt_nio",       feature="rt_glommio",   feature="rt_tokio",     feature="rt_async-std")),
-    all(feature="rt_nio",       any(feature="rt_glommio",   feature="rt_tokio",     feature="rt_async-std", feature="rt_smol"     )),
-    all(feature="rt_glommio",   any(feature="rt_tokio",     feature="rt_async-std", feature="rt_smol",      feature="rt_nio"      )),
+    all(feature="rt_tokio",   any(feature="rt_smol",    feature="rt_glommio")),
+    all(feature="rt_smol",    any(feature="rt_glommio", feature="rt_tokio"  )),
+    all(feature="rt_glommio", any(feature="rt_tokio",   feature="rt_smol"   )),
 ))]
 compile_error! {"More than one runtime feature flags can't be activated"}
 
@@ -45,15 +43,6 @@ mod runtime {
         tokio::time::sleep
     };
 
-    #[cfg(feature="rt_async-std")]
-    pub use {
-        async_std::net::TcpStream,
-        async_std::io::ReadExt as AsyncRead,
-        async_std::io::WriteExt as AsyncWrite,
-        async_std::sync::RwLock,
-        async_std::task::sleep
-    };
-
     #[cfg(feature="rt_smol")]
     pub use {
         smol::net::TcpStream,
@@ -65,15 +54,6 @@ mod runtime {
     pub async fn sleep(duration: std::time::Duration) {
         smol::Timer::after(duration).await;
     }
-
-    #[cfg(feature="rt_nio")]
-    pub use {
-        nio::net::TcpStream,
-        tokio::io::AsyncReadExt as AsyncRead,
-        tokio::io::AsyncWriteExt as AsyncWrite,
-        tokio::sync::RwLock,
-        nio::time::sleep
-    };
 
     #[cfg(feature="rt_glommio")]
     pub use {

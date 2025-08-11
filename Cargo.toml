@@ -17,9 +17,7 @@ features = ["rt_tokio"]
 
 [dependencies]
 tokio     = { optional = true, version = "1", features = ["net", "io-util", "sync", "time"] }
-async-std = { optional = true, version = "1"   }
 smol      = { optional = true, version = "2"   }
-nio       = { optional = true, version = "0.0" }
 glommio   = { optional = true, version = "0.9" }
 
 futures-util = { optional = true, version = "0.3", default-features = false, features = ["io"] }
@@ -29,9 +27,7 @@ base64 = { version = "0.22" }
 
 [features]
 rt_tokio     = ["__splitref__", "dep:tokio","tokio/net","tokio/io-util","tokio/sync","tokio/time"]
-rt_async-std = ["__clone__",    "dep:async-std"]
 rt_smol      = ["__clone__",    "dep:smol"]
-rt_nio       = ["__splitref__", "dep:nio",     "dep:tokio","tokio/io-util"]
 rt_glommio   = ["__splitref__", "dep:glommio", "dep:futures-util"]
 
 ### internal ###
