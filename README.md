@@ -15,7 +15,7 @@
 
 * Minimal and Efficient : minimal codebase to provide efficient, memory-safe WebSocket handling.
 
-* Multi Environment : `tokio`, `smol`, `glommio` are supported as async runtime ( by feature flags `rt_{name}` ).
+* Multi-Environment : `tokio`, `smol`, `glommio` are supported as async runtime ( by feature flags `rt_{name}` ).
 
 ## Note
 
@@ -33,10 +33,11 @@ mews  = { version = "0.2", features = ["rt_tokio"] }
 tokio = { version = "1",   features = ["rt"] }
 # ...
 ```
-*( with pseudo Request & Response )*
-```rust
+**( with pseudo Request & Response )**
+```rust,ignore
 /* server */
 
+use tokio::net::TcpStream;
 use mews::{WebSocketContext, Connection, Message};
 
 async fn handle_websocket(
@@ -48,7 +49,7 @@ async fn handle_websocket(
     );
 
     let (sign, ws) = ctx.on_upgrade(
-        |mut conn: Connection| async move {
+        |mut conn: Connection<TcpStream>| async move {
             while let Ok(Some(Message::Text(text))) = conn.recv().await {
                 conn.send(text).await
                     .expect("failed to send message");
@@ -67,8 +68,10 @@ async fn handle_websocket(
     ws.manage(tcp);
 }
 ```
-```rust
+```rust,ignore
 /* client */
+
+use tokio::net::TcpStream;
 
 async fn start_websocket(
     mut tcp: TcpStream
@@ -80,7 +83,7 @@ async fn start_websocket(
     );
 
     let (sign, ws) = ctx.on_upgrade(
-        |mut conn: Connection| async move {
+        |mut conn: Connection<TcpStream>| async move {
             conn.send("Hello!").await.expect("failed to send message");
             while let Ok(Some(Message::Text(text))) = conn.recv().await {
                 println!("got: `{text}`")

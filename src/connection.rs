@@ -5,7 +5,7 @@ use std::{sync::Arc, io::Error};
 pub trait UnderlyingConnection: AsyncRead + AsyncWrite + Unpin + 'static {}
 impl<T: AsyncRead + AsyncWrite + Unpin + 'static> UnderlyingConnection for T {}
 
-pub struct Connection<C: UnderlyingConnection = crate::runtime::TcpStream> {
+pub struct Connection<C: UnderlyingConnection> {
     __closed__: Arc<RwLock<bool>>,
 
     conn: Arc<std::cell::UnsafeCell<C>>,
@@ -343,14 +343,6 @@ pub mod split {
                 <tokio::net::TcpStream>::split(self)
             }
         }
-        #[cfg(feature="rt_nio")]
-        impl<'split> Splitable<'split> for nio::net::TcpStream {
-            type ReadHalf  = nio::net::tcp::ReadHalf <'split>;
-            type WriteHalf = nio::net::tcp::WriteHalf<'split>;
-            fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
-                <nio::net::TcpStream>::split(self)
-            }
-        }
         #[cfg(feature="rt_glommio")]
         impl<'split, T: AsyncRead + AsyncWrite + Unpin + 'split> Splitable<'split> for T {
             type ReadHalf  = futures_util::io::ReadHalf <&'split mut T>;
@@ -371,7 +363,7 @@ pub mod split {
         }
     };
 
-    pub struct ReadHalf<C: AsyncRead + Unpin = <crate::runtime::TcpStream as Splitable<'static>>::ReadHalf> {
+    pub struct ReadHalf<C: AsyncRead + Unpin> {
         __closed__: Arc<RwLock<bool>>,
         conn:   C,
         config: Config,
@@ -389,7 +381,7 @@ pub mod split {
         }
     }
 
-    pub struct WriteHalf<C: AsyncWrite + Unpin = <crate::runtime::TcpStream as Splitable<'static>>::WriteHalf> {
+    pub struct WriteHalf<C: AsyncWrite + Unpin> {
         __closed__: Arc<RwLock<bool>>,
         conn:       C,
         config:     Config,
