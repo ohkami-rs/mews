@@ -1,4 +1,3 @@
-use crate::runtime;
 use crate::message::{CloseFrame, CloseCode};
 use crate::connection::{UnderlyingConnection, Connection};
 
@@ -47,7 +46,7 @@ pub type Handler<C> = Box<dyn
 ///     );
 /// 
 ///     let (sign, ws) = ctx.on_upgrade(
-///         |mut conn: Connection| async move {
+///         |mut conn: Connection<TcpStream>| async move {
 ///             while let Ok(Some(Message::Text(text))) = conn.recv().await {
 ///                 conn.send(text).await
 ///                     .expect("failed to send message");
@@ -130,7 +129,7 @@ const _: () = {
 ///     tcp: TcpStream
 /// ) -> Response {
 ///     let (sign, ws) = ctx.on_upgrade(
-///         |mut conn: Connection| async move {
+///         |mut conn: Connection<TcpStream>| async move {
 ///             while let Ok(Some(Message::Text(text))) = conn.recv().await {
 ///                 conn.send(text).await
 ///                     .expect("failed to send message");
@@ -145,7 +144,7 @@ const _: () = {
 /// }
 /// ```
 #[must_use = "`WebSocket` does nothing unless `.manage()` or `.manage_with_timeout()` is called"]
-pub struct WebSocket<C: UnderlyingConnection = runtime::TcpStream> {
+pub struct WebSocket<C: UnderlyingConnection> {
     config:  Config,
     handler: Handler<C>,
 }
@@ -185,7 +184,7 @@ impl<C: UnderlyingConnection> WebSocket<C> {
 const _: () = {
     impl<C: UnderlyingConnection> PartialEq for WebSocket<C>
     where
-        dyn FnOnce(Connection<C>) -> std::pin::Pin<Box<(dyn std::future::Future<Output = ()> + Send + 'static)>> + Send + Sync
+        dyn FnOnce(Connection<C>) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'static>> + Send + Sync
         : PartialEq
     {
         fn eq(&self, other: &Self) -> bool {

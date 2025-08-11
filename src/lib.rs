@@ -36,7 +36,6 @@ compile_error! {"More than one runtime feature flags can't be activated"}
 mod runtime {
     #[cfg(feature="rt_tokio")]
     pub use {
-        tokio::net::TcpStream,
         tokio::io::AsyncReadExt as AsyncRead,
         tokio::io::AsyncWriteExt as AsyncWrite,
         tokio::sync::RwLock,
@@ -45,7 +44,6 @@ mod runtime {
 
     #[cfg(feature="rt_smol")]
     pub use {
-        smol::net::TcpStream,
         smol::io::AsyncReadExt as AsyncRead,
         smol::io::AsyncWriteExt as AsyncWrite,
         smol::lock::RwLock,
@@ -57,7 +55,6 @@ mod runtime {
 
     #[cfg(feature="rt_glommio")]
     pub use {
-        glommio::net::TcpStream,
         futures_util::AsyncReadExt as AsyncRead,
         futures_util::AsyncWriteExt as AsyncWrite,
         glommio::sync::RwLock,
