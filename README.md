@@ -15,7 +15,7 @@
 
 * Minimal and Efficient : minimal codebase to provide efficient, memory-safe WebSocket handling.
 
-* Multi Environment : `tokio`, `async-std`, `smol`, `nio`, `glommio` are supported as async runtime ( by feature flags `rt_{name}` ).
+* Multi Environment : `tokio`, `smol`, `glommio` are supported as async runtime ( by feature flags `rt_{name}` ).
 
 ## Note
 
