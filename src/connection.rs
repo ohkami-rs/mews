@@ -343,8 +343,21 @@ pub mod split {
             }
         }
     };
-
+    
     #[cfg(any(feature="rt_tokio"))]
+    #[cfg(feature="tcpstream-only")]
+    const _: (/* tokio::net::TcpStream users */) = {
+        /* efficient-able specialized impl for `tokio::net::TcpStream` */
+        impl<'split> Splitable<'split> for tokio::net::TcpStream {
+            type ReadHalf  = tokio::net::tcp::ReadHalf<'split>;
+            type WriteHalf = tokio::net::tcp::WriteHalf<'split>;
+            fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
+                tokio::net::TcpStream::split(self)
+            }
+        }
+    };
+    #[cfg(any(feature="rt_tokio"))]
+    #[cfg(not(feature="tcpstream-only"))]
     const _: (/* tokio::io users */) = {
         impl<'split, T: AsyncRead + AsyncWrite + Unpin + 'split> Splitable<'split> for T {
             type ReadHalf  = TokioIoReadHalf<'split, T>;
