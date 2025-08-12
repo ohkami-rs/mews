@@ -333,36 +333,76 @@ pub mod split {
         }
     }
 
-    #[cfg(feature="__splitref__")]
-    const _: () = {
-        #[cfg(feature="rt_tokio")]
-        impl<'split> Splitable<'split> for tokio::net::TcpStream {
-            type ReadHalf  = tokio::net::tcp::ReadHalf <'split>;
-            type WriteHalf = tokio::net::tcp::WriteHalf<'split>;
-            fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
-                <tokio::net::TcpStream>::split(self)
-            }
-        }
-        #[cfg(feature="rt_glommio")]
+    #[cfg(any(feature="rt_smol", feature="rt_glommio"))]
+    const _: (/* futures-io users */) = {
         impl<'split, T: AsyncRead + AsyncWrite + Unpin + 'split> Splitable<'split> for T {
-            type ReadHalf  = futures_util::io::ReadHalf <&'split mut T>;
+            type ReadHalf  = futures_util::io::ReadHalf<&'split mut T>;
             type WriteHalf = futures_util::io::WriteHalf<&'split mut T>;
             fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
                 AsyncRead::split(self)
             }
         }
     };
-    #[cfg(feature="__clone__")]
-    const _: () = {
-        impl<'split, C: AsyncRead + AsyncWrite + Unpin + Sized + Clone + 'split> Splitable<'split> for C {
-            type ReadHalf = Self;
-            type WriteHalf = &'split mut Self;
+
+    #[cfg(any(feature="rt_tokio"))]
+    const _: (/* tokio::io users */) = {
+        impl<'split, T: AsyncRead + AsyncWrite + Unpin + 'split> Splitable<'split> for T {
+            type ReadHalf  = TokioIoReadHalf<'split, T>;
+            type WriteHalf = TokioIoWriteHalf<'split, T>;
             fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
-                (self.clone(), self)
+                let (r, w) = futures_util::lock::BiLock::new(self);
+                (TokioIoReadHalf(r), TokioIoWriteHalf(w))
+            }
+        }
+        
+        /*
+         * based on https://github.com/rust-lang/futures-rs/blob/de9274e655b2fff8c9630a259a473b71a6b79dda/futures-util/src/io/split.rs
+         */
+        pub struct TokioIoReadHalf<'split, T>(futures_util::lock::BiLock<&'split mut T>);
+        pub struct TokioIoWriteHalf<'split, T>(futures_util::lock::BiLock<&'split mut T>);
+        fn lock_and_then<T, U, E>(
+            lock: &futures_util::lock::BiLock<T>,
+            cx: &mut std::task::Context<'_>,
+            f: impl FnOnce(std::pin::Pin<&mut T>, &mut std::task::Context<'_>) -> std::task::Poll<Result<U, E>>
+        ) -> std::task::Poll<Result<U, E>> {
+            let mut l = futures_util::ready!(lock.poll_lock(cx));
+            f(l.as_pin_mut(), cx)
+        }
+        impl<'split, T: tokio::io::AsyncRead + Unpin> tokio::io::AsyncRead for TokioIoReadHalf<'split, T> {
+            #[inline]
+            fn poll_read(
+                self: std::pin::Pin<&mut Self>, 
+                cx: &mut std::task::Context<'_>, 
+                buf: &mut tokio::io::ReadBuf<'_>
+            ) -> std::task::Poll<std::io::Result<()>> {
+                lock_and_then(&self.0, cx, |l, cx| l.poll_read(cx, buf))
+            }
+        }
+        impl<'split, T: tokio::io::AsyncWrite + Unpin> tokio::io::AsyncWrite for TokioIoWriteHalf<'split, T> {
+            #[inline]
+            fn poll_write(
+                self: std::pin::Pin<&mut Self>, 
+                cx: &mut std::task::Context<'_>, 
+                buf: &[u8]
+            ) -> std::task::Poll<std::io::Result<usize>> {
+                lock_and_then(&self.0, cx, |l, cx| l.poll_write(cx, buf))
+            }
+            #[inline]
+            fn poll_flush(
+                self: std::pin::Pin<&mut Self>, 
+                cx: &mut std::task::Context<'_>
+            ) -> std::task::Poll<std::io::Result<()>> {
+                lock_and_then(&self.0, cx, |l, cx| l.poll_flush(cx))
+            }    
+            fn poll_shutdown(
+                self: std::pin::Pin<&mut Self>, 
+                cx: &mut std::task::Context<'_>
+            ) -> std::task::Poll<std::io::Result<()>> {
+                lock_and_then(&self.0, cx, |l, cx| l.poll_shutdown(cx))
             }
         }
     };
-
+    
     pub struct ReadHalf<C: AsyncRead + Unpin> {
         __closed__: Arc<RwLock<bool>>,
         conn:   C,
@@ -431,5 +471,17 @@ pub mod split {
 
             flush(conn, n_buffered).await
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[cfg(feature="__runtime__")]
+    #[test]
+    fn test_impl_splitable() {
+        fn assert_impl_splitable<T: split::Splitable<'static>>() {}
+        assert_impl_splitable::<crate::runtime::net::TcpStream>();
     }
 }

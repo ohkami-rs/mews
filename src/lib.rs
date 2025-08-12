@@ -32,34 +32,40 @@
 ))]
 compile_error! {"More than one runtime feature flags can't be activated"}
 
-#[cfg(feature="__runtime__")]
+#[cfg(feature="rt_tokio")]
 mod runtime {
-    #[cfg(feature="rt_tokio")]
     pub use {
         tokio::io::AsyncReadExt as AsyncRead,
         tokio::io::AsyncWriteExt as AsyncWrite,
         tokio::sync::RwLock,
         tokio::time::sleep
     };
-
-    #[cfg(feature="rt_smol")]
+    #[cfg(test)]
+    pub use tokio::net;
+}
+#[cfg(feature="rt_smol")]
+mod runtime {
     pub use {
-        smol::io::AsyncReadExt as AsyncRead,
-        smol::io::AsyncWriteExt as AsyncWrite,
+        futures_util::AsyncReadExt as AsyncRead,
+        futures_util::AsyncWriteExt as AsyncWrite,
         smol::lock::RwLock,
     };
-    #[cfg(feature="rt_smol")]
     pub async fn sleep(duration: std::time::Duration) {
         smol::Timer::after(duration).await;
     }
-
-    #[cfg(feature="rt_glommio")]
+    #[cfg(test)]
+    pub use smol::net;
+}
+#[cfg(feature="rt_glommio")]
+mod runtime {
     pub use {
         futures_util::AsyncReadExt as AsyncRead,
         futures_util::AsyncWriteExt as AsyncWrite,
         glommio::sync::RwLock,
         glommio::timer::sleep
     };
+    #[cfg(test)]
+    pub use glommio::net;
 }
 
 pub mod message;

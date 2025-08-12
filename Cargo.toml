@@ -20,20 +20,18 @@ tokio     = { optional = true, version = "1", features = ["net", "io-util", "syn
 smol      = { optional = true, version = "2"   }
 glommio   = { optional = true, version = "0.9" }
 
-futures-util = { optional = true, version = "0.3", default-features = false, features = ["io"] }
+futures-util = { version = "0.3", default-features = false, features = ["io"] }
 
 sha1   = { version = "0.10", default-features = false }
 base64 = { version = "0.22" }
 
 [features]
-rt_tokio     = ["__splitref__", "dep:tokio","tokio/net","tokio/io-util","tokio/sync","tokio/time"]
-rt_smol      = ["__clone__",    "dep:smol"]
-rt_glommio   = ["__splitref__", "dep:glommio", "dep:futures-util"]
+rt_tokio     = ["__runtime__", "dep:tokio", "futures-util/unstable","futures-util/bilock"]
+rt_smol      = ["__runtime__", "dep:smol"]
+rt_glommio   = ["__runtime__", "dep:glommio"]
 
 ### internal ###
 __runtime__  = []
-__splitref__ = ["__runtime__"]
-__clone__    = ["__runtime__"]
 
 #####################################
 DEBUG = ["tokio?/rt"] ###############
