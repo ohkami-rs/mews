@@ -25,6 +25,10 @@ MEWS is NOT WebSocket server, just protocol implementation. So :
 
 * Doesn't builtins `wss://` support.
 
+## Feature Flags
+
+- `tcpstream-only` : limit `split` functionality to only the runtime's `TcpStream`, in exchange for possible performance optimization.
+
 ## Example
 
 ```toml

@@ -12,6 +12,7 @@ tasks:
   test:rt:
     cmds:
       - cargo test --lib --features rt_{{.rt}}
+      - cargo test --lib --features rt_{{.rt}},tcpstream-only
 
   test:no_rt:
     cmds:

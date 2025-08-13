@@ -40,7 +40,7 @@ mod runtime {
         tokio::sync::RwLock,
         tokio::time::sleep
     };
-    #[cfg(test)]
+    #[cfg(any(test, feature="tcpstream-only"))]
     pub use tokio::net;
 }
 #[cfg(feature="rt_smol")]
@@ -53,7 +53,7 @@ mod runtime {
     pub async fn sleep(duration: std::time::Duration) {
         smol::Timer::after(duration).await;
     }
-    #[cfg(test)]
+    #[cfg(any(test, feature="tcpstream-only"))]
     pub use smol::net;
 }
 #[cfg(feature="rt_glommio")]
@@ -64,7 +64,7 @@ mod runtime {
         glommio::sync::RwLock,
         glommio::timer::sleep
     };
-    #[cfg(test)]
+    #[cfg(any(test, feature="tcpstream-only"))]
     pub use glommio::net;
 }
 

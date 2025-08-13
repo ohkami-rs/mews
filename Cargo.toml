@@ -26,9 +26,13 @@ sha1   = { version = "0.10", default-features = false }
 base64 = { version = "0.22" }
 
 [features]
-rt_tokio     = ["__runtime__", "dep:tokio", "futures-util/unstable","futures-util/bilock"]
-rt_smol      = ["__runtime__", "dep:smol"]
-rt_glommio   = ["__runtime__", "dep:glommio"]
+### runtimes ###
+rt_tokio   = ["__runtime__", "dep:tokio", "futures-util/unstable","futures-util/bilock"]
+rt_smol    = ["__runtime__", "dep:smol"]
+rt_glommio = ["__runtime__", "dep:glommio"]
+
+### optimizations ###
+tcpstream-only = []
 
 ### internal ###
 __runtime__  = []

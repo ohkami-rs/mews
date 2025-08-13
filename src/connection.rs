@@ -335,6 +335,15 @@ pub mod split {
 
     #[cfg(any(feature="rt_smol", feature="rt_glommio"))]
     const _: (/* futures-io users */) = {
+        #[cfg(feature="tcpstream-only")]
+        impl<'split> Splitable<'split> for crate::runtime::net::TcpStream {
+            type ReadHalf  = futures_util::io::ReadHalf<&'split mut Self>;
+            type WriteHalf = futures_util::io::WriteHalf<&'split mut Self>;
+            fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
+                AsyncRead::split(self)
+            }
+        }
+        #[cfg(not(feature="tcpstream-only"))]
         impl<'split, T: AsyncRead + AsyncWrite + Unpin + 'split> Splitable<'split> for T {
             type ReadHalf  = futures_util::io::ReadHalf<&'split mut T>;
             type WriteHalf = futures_util::io::WriteHalf<&'split mut T>;
@@ -343,8 +352,21 @@ pub mod split {
             }
         }
     };
-
+    
     #[cfg(any(feature="rt_tokio"))]
+    #[cfg(feature="tcpstream-only")]
+    const _: (/* tokio::net::TcpStream users */) = {
+        /* efficient-able specialized impl for `tokio::net::TcpStream` */
+        impl<'split> Splitable<'split> for tokio::net::TcpStream {
+            type ReadHalf  = tokio::net::tcp::ReadHalf<'split>;
+            type WriteHalf = tokio::net::tcp::WriteHalf<'split>;
+            fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
+                tokio::net::TcpStream::split(self)
+            }
+        }
+    };
+    #[cfg(any(feature="rt_tokio"))]
+    #[cfg(not(feature="tcpstream-only"))]
     const _: (/* tokio::io users */) = {
         impl<'split, T: AsyncRead + AsyncWrite + Unpin + 'split> Splitable<'split> for T {
             type ReadHalf  = TokioIoReadHalf<'split, T>;
