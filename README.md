@@ -33,8 +33,8 @@ MEWS is NOT WebSocket server, just protocol implementation. So :
 
 ```toml
 [dependencies]
-mews  = { version = "0.3", features = ["rt_tokio"] }
-tokio = { version = "1",   features = ["rt"] }
+mews  = { version = "0.4.0", features = ["rt_tokio"] }
+tokio = { version = "1", features = ["full"] }
 # ...
 ```
 _**( with pseudo Request & Response )**_
