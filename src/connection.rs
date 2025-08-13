@@ -335,6 +335,15 @@ pub mod split {
 
     #[cfg(any(feature="rt_smol", feature="rt_glommio"))]
     const _: (/* futures-io users */) = {
+        #[cfg(feature="tcpstream-only")]
+        impl<'split> Splitable<'split> for crate::runtime::net::TcpStream {
+            type ReadHalf  = futures_util::io::ReadHalf<&'split mut Self>;
+            type WriteHalf = futures_util::io::WriteHalf<&'split mut Self>;
+            fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
+                AsyncRead::split(self)
+            }
+        }
+        #[cfg(not(feature="tcpstream-only"))]
         impl<'split, T: AsyncRead + AsyncWrite + Unpin + 'split> Splitable<'split> for T {
             type ReadHalf  = futures_util::io::ReadHalf<&'split mut T>;
             type WriteHalf = futures_util::io::WriteHalf<&'split mut T>;
