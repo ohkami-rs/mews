@@ -67,6 +67,17 @@ mod runtime {
     #[cfg(any(test, feature="tcpstream-only"))]
     pub use glommio::net;
 }
+#[cfg(feature="rt_nio")]
+mod runtime {
+    pub use {
+        tokio::io::AsyncReadExt as AsyncRead,
+        tokio::io::AsyncWriteExt as AsyncWrite,
+        tokio::sync::RwLock,
+        nio::time::sleep
+    };
+    #[cfg(any(test, feature="tcpstream-only"))]
+    pub use nio::net;
+}
 
 pub mod message;
 #[cfg(feature="__runtime__")]

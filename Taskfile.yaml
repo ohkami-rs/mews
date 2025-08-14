@@ -3,7 +3,7 @@ version: 3
 tasks:
   CI:
     deps:
-      - for:  [tokio, smol, glommio]
+      - for:  [tokio, smol, glommio, nio]
         task: test:rt
         vars: { rt: '{{.ITEM}}' }
       - task: test:no_rt
