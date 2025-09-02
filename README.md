@@ -15,7 +15,10 @@
 
 * Minimal and Efficient : minimal codebase to provide efficient, memory-safe WebSocket handling.
 
-* Multi-Environment : `tokio`, `smol`, `glommio`, `nio` are supported as async runtime ( by feature flags `rt_{name}` ).
+* Multi-Environment : works with any async runtimes with `tokio::io` or `futures_io` interface
+  (for example: `tokio` or `nio` use `tokio::io` interface,
+  and `smol` or `glommio` use `futures_io` interface).\
+  Feature flags **`io_tokio`** or **`io_futures`** enables integration for respective IO interface.
 
 ## Note
 
@@ -25,15 +28,15 @@ MEWS is NOT WebSocket server, just protocol implementation. So :
 
 * Doesn't builtins `wss://` support.
 
-## Feature Flags
+## Usage
 
-- `tcpstream-only` : limit `split` functionality to only the runtime's `TcpStream`, in exchange for possible performance optimization.
+**`io_tokio`** or **`io_futures`** must be activated to integrate with async IO interfaces.
 
-## Example
+Here specifying `io_tokio` to use with `tokio`:
 
 ```toml
 [dependencies]
-mews  = { version = "0.4.0", features = ["rt_tokio"] }
+mews  = { version = "0.4.0", features = ["io_tokio"] }
 tokio = { version = "1", features = ["full"] }
 # ...
 ```
