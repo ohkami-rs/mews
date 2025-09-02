@@ -38,7 +38,6 @@ mod sync {
     pub(crate) use tokio::sync::RwLock;
 }
 
-#[cfg(feature="__io__")]
 pub mod message;
 #[cfg(feature="__io__")]
 pub mod frame;
@@ -47,9 +46,9 @@ pub mod websocket;
 #[cfg(feature="__io__")]
 pub mod connection;
 
+pub use message::{Message, CloseFrame, CloseCode};
 #[cfg(feature="__io__")]
 pub use {
-    message::{Message, CloseFrame, CloseCode},
     websocket::*,
     connection::{Connection, split::{self, Splitable, ReadHalf, WriteHalf}},
 };
