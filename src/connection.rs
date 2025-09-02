@@ -1,5 +1,8 @@
+#![cfg(feature="__io__")]
+
+use crate::io::{AsyncRead, AsyncWrite};
+use crate::sync::RwLock;
 use crate::{Config, Message};
-use crate::runtime::{AsyncRead, AsyncWrite, RwLock};
 use std::{sync::Arc, io::Error};
 
 pub trait UnderlyingConnection: AsyncRead + AsyncWrite + Unpin + 'static {}
@@ -19,24 +22,11 @@ pub struct Connection<C: UnderlyingConnection> {
 /*============================================================*/
     #[inline(always)]
     async fn read_closed(__closed__: &RwLock<bool>) -> bool {
-        #[cfg(feature="rt_glommio")]
-        match __closed__.read().await {
-            Ok(read) => *read,
-            Err(_/* closed */) => true
-        }
-        #[cfg(not(feature="rt_glommio"))]
         *__closed__.read().await
     }
     #[inline(always)]
     async fn set_closed(__closed__: &RwLock<bool>) {
-        #[cfg(feature="rt_glommio")] {
-            if let Ok(mut write) = __closed__.write().await {
-                *write = true
-            }
-        }
-        #[cfg(not(feature="rt_glommio"))] {
-            *__closed__.write().await = true
-        }
+        *__closed__.write().await = true
     }
 
     const ALREADY_CLOSED_MESSAGE: &str = "\n\
@@ -333,17 +323,8 @@ pub mod split {
         }
     }
 
-    #[cfg(feature="__io_futures__")]
+    #[cfg(feature="io_futures")]
     const _: (/* futures-io users */) = {
-        #[cfg(feature="tcpstream-only")]
-        impl<'split> Splitable<'split> for crate::runtime::net::TcpStream {
-            type ReadHalf  = futures_util::io::ReadHalf<&'split mut Self>;
-            type WriteHalf = futures_util::io::WriteHalf<&'split mut Self>;
-            fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
-                AsyncRead::split(self)
-            }
-        }
-        #[cfg(not(feature="tcpstream-only"))]
         impl<'split, T: AsyncRead + AsyncWrite + Unpin + 'split> Splitable<'split> for T {
             type ReadHalf  = futures_util::io::ReadHalf<&'split mut T>;
             type WriteHalf = futures_util::io::WriteHalf<&'split mut T>;
@@ -353,20 +334,7 @@ pub mod split {
         }
     };
     
-    #[cfg(feature="__io_tokio__")]
-    #[cfg(feature="tcpstream-only")]
-    const _: (/* tokio::io users */) = {
-        /* efficient-able specialized impl for `TcpStream` */
-        impl<'split> Splitable<'split> for crate::runtime::net::TcpStream {
-            type ReadHalf  = crate::runtime::net::tcp::ReadHalf<'split>;
-            type WriteHalf = crate::runtime::net::tcp::WriteHalf<'split>;
-            fn split(&'split mut self) -> (Self::ReadHalf, Self::WriteHalf) {
-                crate::runtime::net::TcpStream::split(self)
-            }
-        }
-    };
-    #[cfg(feature="__io_tokio__")]
-    #[cfg(not(feature="tcpstream-only"))]
+    #[cfg(feature="io_tokio")]
     const _: (/* tokio::io users */) = {
         impl<'split, T: AsyncRead + AsyncWrite + Unpin + 'split> Splitable<'split> for T {
             type ReadHalf  = TokioIoReadHalf<'split, T>;
@@ -492,17 +460,5 @@ pub mod split {
 
             flush(conn, n_buffered).await
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    
-    #[cfg(feature="__runtime__")]
-    #[test]
-    fn test_impl_splitable() {
-        fn assert_impl_splitable<T: split::Splitable<'static>>() {}
-        assert_impl_splitable::<crate::runtime::net::TcpStream>();
     }
 }
