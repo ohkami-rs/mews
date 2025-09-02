@@ -1,10 +1,8 @@
-#[cfg(feature="__runtime__")]
-use {
-    std::io::{Error, ErrorKind},
-    crate::runtime::{AsyncRead, AsyncWrite},
-    crate::frame::{Frame, OpCode},
-    crate::Config,
-};
+#![cfg(feature="__io__")]
+use crate::frame::{Frame, OpCode};
+use crate::io::{AsyncRead, AsyncWrite};
+use crate::Config;
+use std::io::{Error, ErrorKind};
 
 #[derive(Debug)]
 pub enum Message {
@@ -85,7 +83,7 @@ impl CloseCode {
     }
 }
 
-#[cfg(feature="__runtime__")]
+#[cfg(feature="__io__")]
 impl CloseCode {
     pub(super) fn from_bytes(bytes: [u8; 2]) -> Self {
         Self::from(u16::from_be_bytes(bytes))
@@ -97,7 +95,7 @@ impl CloseCode {
     }
 }
 
-#[cfg(feature="__runtime__")]
+#[cfg(feature="__io__")]
 impl Message {
     const PING_PONG_PAYLOAD_LIMIT: usize = 125;
 

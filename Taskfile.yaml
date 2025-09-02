@@ -3,21 +3,20 @@ version: 3
 tasks:
   CI:
     deps:
-      - for:  [tokio, smol, glommio, nio]
-        task: test:rt
-        vars: { rt: '{{.ITEM}}' }
-      - task: test:no_rt
+      - for:  [tokio, futures]
+        task: test:with_io
+        vars: { io: '{{.ITEM}}' }
+      - task: test:without_io
       - task: test:doc
 
-  test:rt:
+  test:with_io:
     cmds:
-      - cargo test --lib --features rt_{{.rt}}
-      - cargo test --lib --features rt_{{.rt}},tcpstream-only
+      - cargo test --lib --features io_{{.io}}
 
-  test:no_rt:
+  test:without_io:
     cmds:
       - cargo test
 
   test:doc:
     cmds:
-      - cargo test --doc --features rt_tokio,DEBUG
+      - cargo test --doc --features io_tokio

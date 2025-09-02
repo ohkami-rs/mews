@@ -25,72 +25,31 @@
 //! 
 //! * Doesn't builtins `wss://` support.
 
-#[cfg(any(
-    all(feature="rt_tokio",   any(feature="rt_smol",    feature="rt_glommio")),
-    all(feature="rt_smol",    any(feature="rt_glommio", feature="rt_tokio"  )),
-    all(feature="rt_glommio", any(feature="rt_tokio",   feature="rt_smol"   )),
-))]
-compile_error! {"More than one runtime feature flags can't be activated"}
-
-#[cfg(feature="rt_tokio")]
-mod runtime {
-    pub use {
-        tokio::io::AsyncReadExt as AsyncRead,
-        tokio::io::AsyncWriteExt as AsyncWrite,
-        tokio::sync::RwLock,
-        tokio::time::sleep
-    };
-    #[cfg(any(test, feature="tcpstream-only"))]
-    pub use tokio::net;
-}
-#[cfg(feature="rt_smol")]
-mod runtime {
-    pub use {
-        futures_util::AsyncReadExt as AsyncRead,
-        futures_util::AsyncWriteExt as AsyncWrite,
-        smol::lock::RwLock,
-    };
-    pub async fn sleep(duration: std::time::Duration) {
-        smol::Timer::after(duration).await;
-    }
-    #[cfg(any(test, feature="tcpstream-only"))]
-    pub use smol::net;
-}
-#[cfg(feature="rt_glommio")]
-mod runtime {
-    pub use {
-        futures_util::AsyncReadExt as AsyncRead,
-        futures_util::AsyncWriteExt as AsyncWrite,
-        glommio::sync::RwLock,
-        glommio::timer::sleep
-    };
-    #[cfg(any(test, feature="tcpstream-only"))]
-    pub use glommio::net;
-}
-#[cfg(feature="rt_nio")]
-mod runtime {
-    pub use {
-        tokio::io::AsyncReadExt as AsyncRead,
-        tokio::io::AsyncWriteExt as AsyncWrite,
-        tokio::sync::RwLock,
-        nio::time::sleep
-    };
-    #[cfg(any(test, feature="tcpstream-only"))]
-    pub use nio::net;
+#[cfg(feature="__io__")]
+mod io {
+    #[cfg(feature="io_tokio")]
+    pub(crate) use tokio::io::{AsyncReadExt as AsyncRead, AsyncWriteExt as AsyncWrite};
+    #[cfg(feature="io_futures")]
+    pub(crate) use futures_util::io::{AsyncReadExt as AsyncRead, AsyncWriteExt as AsyncWrite};
 }
 
+#[cfg(feature="__io__")]
+mod sync {
+    pub(crate) use tokio::sync::RwLock;
+}
+
+#[cfg(feature="__io__")]
 pub mod message;
-#[cfg(feature="__runtime__")]
+#[cfg(feature="__io__")]
 pub mod frame;
-#[cfg(feature="__runtime__")]
+#[cfg(feature="__io__")]
 pub mod websocket;
-#[cfg(feature="__runtime__")]
+#[cfg(feature="__io__")]
 pub mod connection;
 
-pub use message::{Message, CloseFrame, CloseCode};
-#[cfg(feature="__runtime__")]
+#[cfg(feature="__io__")]
 pub use {
+    message::{Message, CloseFrame, CloseCode},
     websocket::*,
-    connection::Connection,
-    connection::split::{self, Splitable, ReadHalf, WriteHalf},
+    connection::{Connection, split::{self, Splitable, ReadHalf, WriteHalf}},
 };

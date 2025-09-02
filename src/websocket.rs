@@ -1,3 +1,5 @@
+#![cfg(feature="__io__")]
+
 use crate::message::{CloseFrame, CloseCode};
 use crate::connection::{UnderlyingConnection, Connection};
 
@@ -156,17 +158,13 @@ impl<C: UnderlyingConnection> WebSocket<C> {
         closer.send_close_if_not_closed().await;
     }
 
-    /// manage a WebSocket session on the connection with timeout.
+    /// manage a WebSocket session on the connection with a timeout future (like `sleep()`).
     /// 
     /// returns `true` if session has been aborted by the timeout.
-    pub async fn manage_with_timeout(self, timeout: std::time::Duration, conn: C) -> bool {
+    pub async fn manage_with_timeout(self, timeout: impl std::future::Future, conn: C) -> bool {
         let (conn, closer) = Connection::new(conn, self.config);
 
-        let is_timeouted = with_timeout(timeout,
-            (self.handler)(conn)
-        ).await.is_none();
-
-        if is_timeouted {
+        if with_timeout(timeout, (self.handler)(conn)).await.is_none() {
             closer.send_close_if_not_closed_with(CloseFrame {
                 code:   CloseCode::Library(4000),
                 reason: Some("timeout".into())
@@ -222,33 +220,31 @@ fn sign(sec_websocket_key: &str) -> String {
 
 #[inline]
 fn with_timeout<T>(
-    duration: std::time::Duration,
+    timer: impl std::future::Future,
     task: impl std::future::Future<Output = T>
 ) -> impl std::future::Future<Output = Option<T>> {
-    use std::{task::Poll, pin::Pin};
+    return Timeout { timer, task };
 
-    struct Timeout<Sleep, Proc> { sleep: Sleep, task: Proc }
-
-    #[cfg(feature="rt_glommio")]
-    // SAFETY: task and sleep are performed on same thread
-    unsafe impl<Sleep, Proc> Send for Timeout<Sleep, Proc> {}
-
-    impl<Sleep, Proc, T> std::future::Future for Timeout<Sleep, Proc>
+    struct Timeout<Timer, Task> {
+        timer: Timer,
+        task: Task,
+    }
+    impl<Timer, Task, T> std::future::Future for Timeout<Timer, Task>
     where
-        Sleep: std::future::Future<Output = ()>,
-        Proc:  std::future::Future<Output = T>,
+        Timer: std::future::Future,
+        Task: std::future::Future<Output = T>,
     {
         type Output = Option<T>;
 
         #[inline]
-        fn poll(self: Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
-            let Timeout { sleep, task } = unsafe {self.get_unchecked_mut()};
+        fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> std::task::Poll<Self::Output> {
+            use std::{task::Poll, pin::Pin};
+            
+            let Timeout { timer, task } = unsafe {self.get_unchecked_mut()};
             match unsafe {Pin::new_unchecked(task)}.poll(cx) {
                 Poll::Ready(t) => Poll::Ready(Some(t)),
-                Poll::Pending  => unsafe {Pin::new_unchecked(sleep)}.poll(cx).map(|_| None)
+                Poll::Pending  => unsafe {Pin::new_unchecked(timer)}.poll(cx).map(|_| None)
             }
         }
     }
-
-    Timeout { task, sleep: crate::runtime::sleep(duration) }
 }

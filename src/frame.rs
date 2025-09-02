@@ -1,7 +1,8 @@
-use std::io::{Error, ErrorKind};
-use crate::runtime::{AsyncRead, AsyncWrite};
-use crate::Config;
+#![cfg(feature="__io__")]
 
+use std::io::{Error, ErrorKind};
+use crate::io::{AsyncRead, AsyncWrite};
+use crate::Config;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum OpCode {
@@ -45,7 +46,7 @@ pub(crate) struct Frame {
     pub(crate) payload:  Vec<u8>,
 }
 
-#[cfg(feature="__runtime__")]
+#[cfg(feature="__io__")]
 impl Frame {
     pub(crate) async fn read_from(
         stream: &mut (impl AsyncRead + Unpin),
