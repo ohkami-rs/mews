@@ -1,8 +1,10 @@
-#![cfg(feature="__io__")]
-use crate::frame::{Frame, OpCode};
-use crate::io::{AsyncRead, AsyncWrite};
-use crate::Config;
-use std::io::{Error, ErrorKind};
+#[cfg(feature="__io__")]
+use {
+    crate::io::{AsyncRead, AsyncWrite},
+    crate::frame::{Frame, OpCode},
+    crate::Config,
+    std::io::{Error, ErrorKind},
+};
 
 #[derive(Debug)]
 pub enum Message {
