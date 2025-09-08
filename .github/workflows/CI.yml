@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 jobs:
-  CI:
+  test:
     runs-on: ubuntu-latest
 
     strategy:
@@ -22,7 +22,7 @@ jobs:
           rustup default ${{ matrix.toolchain }}
 
       - name: Taskfile
-        run:  |
+        run: |
           sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
           task CI
         
