@@ -10,10 +10,21 @@ impl<T: AsyncRead + AsyncWrite + Unpin + 'static> UnderlyingConnection for T {}
 
 pub struct Connection<C: UnderlyingConnection> {
     __closed__: Arc<RwLock<bool>>,
-
+    // To handle `Connection` together with its `Closer`.
+    // If `Connection` is dropped, `Closer` can still access the underlying connection.
+    // 
+    // `Closer` is intended to be used in the cleanup process
+    // of `Connection` and not used concurrently. 
+    // So we can use `UnsafeCell` here to get mutable access
+    // to the underlying connection from `Connection` even if
+    // `Closer` exists (: exists but not accessed concurrently).
+    // 
+    // Additionally, `Arc` ensures the underlying connection
+    // is not dropped while `Closer` exists.
+    // This enables to handle `&mut C` in `Connection` methods
+    // without worrying about the lifetime problem.
     conn: Arc<std::cell::UnsafeCell<C>>,
-
-    config:     Config,
+    config: Config,
     n_buffered: usize,
 }
 
@@ -34,14 +45,15 @@ pub struct Connection<C: UnderlyingConnection> {
         | WebSocket connection is already closed!   |\n\
         |                                           |\n\
         | Maybe you spawned tasks using connection  |\n\
-        | and NOT join/await the tasks?             |\n\
+        | and NOT waiting the tasks to finish?      |\n\
         |                                           |\n\
         | This is NOT supported because it may      |\n\
         | cause resource leak due to something like |\n\
         | an infinite loop or a dead lock in the    |\n\
         | WebSocket handler.                        |\n\
-        | If you're doing it, please join/await the |\n\
-        | tasks in the handler!                     |\n\
+        | If you're doing it, please wait           |\n\
+        | (e.g. join, select, await, ...) the tasks |\n\
+        | in the handler!                           |\n\
         --------------------------------------------|\n\
     ";
 
@@ -49,24 +61,29 @@ pub struct Connection<C: UnderlyingConnection> {
         ($this:expr) => {async {
             let _: &mut Connection<_> = $this;
             let conn = (!read_closed(&$this.__closed__).await).then(|| {
-                // SAFETY: `$this` has unique access to `$this.conn` due to the
-                // mutable = exclusive reference
+                // SAFETY:
                 // 
-                // (this is based on the precondition that: `$this` and the closer are NOT used at the same time)
+                // 1. `$this` has unique access to `$this.conn` due to a mutable = exclusive reference
+                //    (based on the precondition: `$this` and the closer are NOT used at the same time)
+                // 2. The coressponded `Closer` exists and the `Arc` knows it while `$this` is alive,
+                //    so the underlying connection is not dropped yet.
                 unsafe {&mut *$this.conn.get()}
             });
             underlying!(@@checked conn)
         }};
-        ($__closed__:ident, $conn:ident) => {async {
+        (unless $__closed__:ident, $conn:ident) => {async {
             let _: &mut _ = $conn;
-            let conn = if (!read_closed(&$__closed__).await) {Some($conn)} else {None};
+            let conn = (!read_closed(&$__closed__).await).then_some($conn);
             underlying!(@@checked conn)
         }};
-        (@@checked $this:expr) => {{
-            let _: Option<&mut _> = $this;
-            $this.ok_or_else(|| {
-                #[cfg(debug_assertions)] eprintln! {"{ALREADY_CLOSED_MESSAGE}"}
-                ::std::io::Error::new(::std::io::ErrorKind::ConnectionReset, "WebSocket connection is already closed")
+        (@@checked $maybe_conn:expr) => {{
+            let _: Option<&mut _> = $maybe_conn;
+            $maybe_conn.ok_or_else(|| {
+                eprintln!("{ALREADY_CLOSED_MESSAGE}");
+                ::std::io::Error::new(
+                    ::std::io::ErrorKind::ConnectionReset,
+                    "WebSocket connection is already closed"
+                )
             })
         }};
     }
@@ -299,7 +316,7 @@ pub mod split {
             ReadHalf<<C as Splitable<'static>>::ReadHalf>,
             WriteHalf<<C as Splitable<'static>>::WriteHalf>,
         ) {
-            if !(*self.__closed__.try_read().expect(ALREADY_CLOSED_MESSAGE) == false) {
+            if *self.__closed__.try_read().expect(ALREADY_CLOSED_MESSAGE) {
                 panic!("{ALREADY_CLOSED_MESSAGE}")
             }
 
@@ -405,7 +422,7 @@ pub mod split {
         #[inline]
         pub async fn recv(&mut self) -> Result<Option<Message>, Error> {
             let Self { __closed__, conn, config } = self;
-            let conn = underlying!(__closed__, conn).await?;
+            let conn = underlying!(unless __closed__, conn).await?;
             Message::read_from(conn, config).await
         }
     }
@@ -426,7 +443,7 @@ pub mod split {
             let message = message.into();
 
             let Self { __closed__, conn, config, n_buffered } = self;
-            let conn = underlying!(__closed__, conn).await?;
+            let conn = underlying!(unless __closed__, conn).await?;
 
             let closing = matches!(message, Message::Close(_));
             send(message, conn, config, n_buffered).await?;
@@ -444,7 +461,7 @@ pub mod split {
             let message = message.into();
 
             let Self { __closed__, conn, config, n_buffered } = self;
-            let conn = underlying!(__closed__, conn).await?;
+            let conn = underlying!(unless __closed__, conn).await?;
 
             let closing = matches!(message, Message::Close(_));
             let n = write(message, conn, config, n_buffered).await?;
@@ -456,7 +473,7 @@ pub mod split {
         /// Flush the connection explicitly.
         pub async fn flush(&mut self) -> Result<(), Error> {
             let Self { __closed__, conn, n_buffered, config:_ } = self;
-            let conn = underlying!(__closed__, conn).await?;
+            let conn = underlying!(unless __closed__, conn).await?;
 
             flush(conn, n_buffered).await
         }
