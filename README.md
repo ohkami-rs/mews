@@ -15,18 +15,10 @@
 
 * Minimal and Efficient : minimal codebase to provide efficient, memory-safe WebSocket handling.
 
-* Multi-Environment : works with any async runtimes with `tokio::io` or `futures_io` interface
+* Multi-Environment : works with any async runtimes with `tokio::io` or `futures::io` interface
   (for example: `tokio` or `nio` use `tokio::io` interface,
-  and `smol` or `glommio` use `futures_io` interface).\
+  and `smol` or `glommio` use `futures::io` interface).\
   Feature flags **`io_tokio`** or **`io_futures`** enables integration for respective IO interface.
-
-## Note
-
-MEWS is NOT WebSocket server, just protocol implementation. So :
-
-* Tend to be used by web libraries internally, not by end-developers.
-
-* Doesn't builtins `wss://` support.
 
 ## Usage
 

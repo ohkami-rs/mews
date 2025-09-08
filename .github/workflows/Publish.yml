@@ -15,11 +15,6 @@ jobs:
       contents: write # to create releases
     
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: main
-          fetch-depth: 0
-      
       - name: Ensure main branch
         run: |
           BRANCHS=$(git branch --contains ${{ github.ref_name }})
@@ -31,10 +26,15 @@ jobs:
           done
           exit 1
       
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+      
       - uses: rust-lang/crates-io-auth-action@v1
         id: cratesio_auth
       
-      - name: Publish to crates.io
+      - name: Trusted Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ steps.cratesio_auth.outputs.token }}
         run: |
