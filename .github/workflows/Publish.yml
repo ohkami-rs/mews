@@ -13,6 +13,7 @@ jobs:
       
     permissions:
       contents: write # to create releases
+      id-token: write # for OIDC authentication
     
     steps:
       - uses: actions/checkout@v5
