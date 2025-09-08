@@ -1,11 +1,12 @@
 name: CI
+
 on:
   pull_request:
   push:
     branches: [main]
 
 jobs:
-  CI:
+  test:
     runs-on: ubuntu-latest
 
     strategy:
@@ -13,14 +14,15 @@ jobs:
         toolchain: [stable, nightly]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ matrix.toolchain }}
+      - name: Setup Rust
+        run: |
+          rustup update
+          rustup default ${{ matrix.toolchain }}
 
       - name: Taskfile
-        run:  |
+        run: |
           sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
           task CI
         
