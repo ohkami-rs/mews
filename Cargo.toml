@@ -1,7 +1,7 @@
 [package]
 name          = "mews"
-version       = "0.5.2"
-edition       = "2021"
+version       = "0.6.0"
+edition       = "2024"
 authors       = ["kanarus <kanarus786@gmail.com>"]
 documentation = "https://docs.rs/mews"
 homepage      = "https://crates.io/crates/mews"
