@@ -28,7 +28,7 @@ Here specifying `io_tokio` to use with `tokio`:
 
 ```toml
 [dependencies]
-mews  = { version = "0.5", features = ["io_tokio"] }
+mews  = { version = "0.6", features = ["io_tokio"] }
 tokio = { version = "1", features = ["full"] }
 # ...
 ```
